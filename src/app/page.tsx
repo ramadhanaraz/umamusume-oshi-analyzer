@@ -13,6 +13,7 @@ import { DatabaseView } from '../components/views/DatabaseView';
 import { ArchetypeView } from '../components/views/ArchetypeView';
 import { PresetsView } from '../components/views/PresetsView';
 import { TraineeModal } from '../components/TraineeModal';
+import { CardActionModal } from '../components/CardActionModal';
 import { Zap } from 'lucide-react';
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
   const [weightMode, setWeightMode] = useState<WeightingMode>('tiered');
   const [filterMode, setFilterMode] = useState<AptitudeFilterMode>('aOnly');
   const [activeSlotRank, setActiveSlotRank] = useState<number | null>(null);
+  const [actionMenuRank, setActionMenuRank] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -42,11 +44,28 @@ export default function Home() {
   const analysis = calculateAnalysis(slots, mode, weightMode, filterMode);
   const labels = TERMINOLOGY[mode];
 
+  // Map of active trainee IDs to their current rank for instant duplicate lookup
+  const activeTraineeRanks = activeTrainees.reduce<Record<string, number>>((acc, curr) => {
+    acc[curr.trainee.id] = curr.rank;
+    return acc;
+  }, {});
+
   const handleSelectTrainee = (trainee: Trainee) => {
     if (!activeSlotRank) return;
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    if (activeSlotRank <= current.length) current[activeSlotRank - 1] = trainee;
-    else current.push(trainee);
+    
+    // Check if trainee already exists in another slot
+    const existingIndex = current.findIndex((t) => t.id === trainee.id);
+    if (existingIndex !== -1 && existingIndex !== activeSlotRank - 1) {
+      alert(`${trainee.nameEn} is already in your Top 50 at Rank #${existingIndex + 1}!`);
+      return;
+    }
+
+    if (activeSlotRank <= current.length) {
+      current[activeSlotRank - 1] = trainee;
+    } else {
+      current.push(trainee);
+    }
 
     setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
     setActiveSlotRank(null);
@@ -54,6 +73,9 @@ export default function Home() {
 
   const handleAddFirstEmpty = (trainee: Trainee) => {
     if (activeCount >= 50) return alert('Your Top 50 roster is full!');
+    if (activeTraineeRanks[trainee.id] !== undefined) {
+      return alert(`${trainee.nameEn} is already in your Top 50 at Rank #${activeTraineeRanks[trainee.id]}!`);
+    }
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
     current.push(trainee);
     setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
@@ -75,10 +97,36 @@ export default function Home() {
     setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
   };
 
+  // Drag-and-drop or Jump to Rank reorder
+  const handleReorder = (sourceRank: number, targetRank: number) => {
+    if (sourceRank === targetRank || targetRank < 1 || targetRank > activeCount) return;
+    const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
+    const [moved] = current.splice(sourceRank - 1, 1);
+    current.splice(targetRank - 1, 0, moved);
+    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
+  };
+
+  const handleReorderList = (newTrainees: Trainee[]) => {
+    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: newTrainees[i] || null })));
+  };
+
   const handleClear = () => {
     if (confirm('Clear all slots in your Top 50 list?')) {
       setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: null })));
     }
+  };
+
+  const handleAutoFillRemaining = () => {
+    const currentList = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
+    if (currentList.length >= 50) return;
+
+    const chosenIds = new Set(currentList.map((t) => t.id));
+    const available = TRAINEES.filter((t) => !chosenIds.has(t.id)).sort(() => 0.5 - Math.random());
+    const needed = 50 - currentList.length;
+    const toAdd = available.slice(0, needed);
+    const fullList = [...currentList, ...toAdd];
+
+    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: fullList[i] || null })));
   };
 
   const handleExportCSV = () => {
@@ -114,6 +162,8 @@ export default function Home() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const activeMenuTrainee = actionMenuRank ? slots[actionMenuRank - 1]?.trainee : null;
 
   return (
     <main className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans">
@@ -169,10 +219,13 @@ export default function Home() {
             activeTrainees={activeTrainees}
             activeCount={activeCount}
             mode={mode}
+            onOpenActionMenu={(r) => setActionMenuRank(r)}
             onOpenModal={(r) => setActiveSlotRank(r)}
             onRemove={handleRemove}
             onMove={handleMove}
+            onReorderList={handleReorderList}
             onLoadPreset={handleLoadPreset}
+            onAutoFillRemaining={handleAutoFillRemaining}
             onClear={handleClear}
             onGoToDatabase={() => setActiveTab('database')}
           />
@@ -195,12 +248,27 @@ export default function Home() {
         )}
       </div>
 
+      {/* Trainee Selection Modal */}
       {activeSlotRank !== null && (
         <TraineeModal
           rank={activeSlotRank}
           trainees={TRAINEES}
+          activeTraineeRanks={activeTraineeRanks}
           onSelect={handleSelectTrainee}
           onClose={() => setActiveSlotRank(null)}
+        />
+      )}
+
+      {/* Card Action Menu Modal */}
+      {actionMenuRank !== null && activeMenuTrainee && (
+        <CardActionModal
+          rank={actionMenuRank}
+          trainee={activeMenuTrainee}
+          totalCount={activeCount}
+          onClose={() => setActionMenuRank(null)}
+          onChangeTrainee={(r) => setActiveSlotRank(r)}
+          onMoveToRank={handleReorder}
+          onRemove={handleRemove}
         />
       )}
     </main>

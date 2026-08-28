@@ -2,16 +2,17 @@
 
 import React from 'react';
 import { Trainee, TerminologyMode, AptitudeGrade } from '../types/trainee';
-import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
+import { Trash2, GripVertical } from 'lucide-react';
+import { Reorder, useDragControls } from 'framer-motion';
 
 interface OshiCardProps {
   rank: number;
   trainee: Trainee;
   mode: TerminologyMode;
   totalCount: number;
-  onOpenModal: (rank: number) => void;
+  isCompact?: boolean;
+  onOpenActionMenu: (rank: number) => void;
   onRemove: (rank: number) => void;
-  onMove: (rank: number, direction: 'up' | 'down') => void;
 }
 
 const getGradeBadgeStyle = (grade: AptitudeGrade) => {
@@ -34,37 +35,38 @@ const getGradeBadgeStyle = (grade: AptitudeGrade) => {
   }
 };
 
-const getRankBadge = (rank: number) => {
+const getRankBadge = (rank: number, isCompact?: boolean) => {
+  const size = isCompact ? 'w-7 h-7 text-xs rounded-lg' : 'w-9 h-9 text-sm rounded-xl';
   if (rank === 1) {
     return (
-      <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center shadow-lg shadow-amber-500/30 shrink-0">
+      <div className={`${size} bg-amber-400 text-slate-950 font-black flex items-center justify-center shadow-lg shadow-amber-500/30 shrink-0`}>
         #{rank}
       </div>
     );
   }
   if (rank === 2) {
     return (
-      <div className="w-9 h-9 rounded-xl bg-slate-200 text-slate-950 font-black text-sm flex items-center justify-center shadow-md shadow-slate-300/20 shrink-0">
+      <div className={`${size} bg-slate-200 text-slate-950 font-black flex items-center justify-center shadow-md shadow-slate-300/20 shrink-0`}>
         #{rank}
       </div>
     );
   }
   if (rank === 3) {
     return (
-      <div className="w-9 h-9 rounded-xl bg-amber-700 text-amber-100 font-black text-sm flex items-center justify-center shadow-md shadow-amber-900/30 shrink-0">
+      <div className={`${size} bg-amber-700 text-amber-100 font-black flex items-center justify-center shadow-md shadow-amber-900/30 shrink-0`}>
         #{rank}
       </div>
     );
   }
   if (rank <= 5) {
     return (
-      <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 font-black text-xs flex items-center justify-center shrink-0">
+      <div className={`${size} bg-amber-500/15 text-amber-400 border border-amber-500/30 font-black flex items-center justify-center shrink-0`}>
         #{rank}
       </div>
     );
   }
   return (
-    <div className="w-9 h-9 rounded-xl bg-slate-900 text-slate-400 border border-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
+    <div className={`${size} bg-slate-900 text-slate-400 border border-slate-800 font-bold flex items-center justify-center shrink-0`}>
       #{rank}
     </div>
   );
@@ -74,11 +76,12 @@ export const OshiCard: React.FC<OshiCardProps> = ({
   rank,
   trainee,
   mode,
-  totalCount,
-  onOpenModal,
+  isCompact = false,
+  onOpenActionMenu,
   onRemove,
-  onMove,
 }) => {
+  const dragControls = useDragControls();
+
   const stylePrefix = {
     front: mode === 'global' ? 'FR' : '逃',
     pace: mode === 'global' ? 'PC' : '先',
@@ -93,14 +96,116 @@ export const OshiCard: React.FC<OshiCardProps> = ({
     long: mode === 'global' ? 'LG' : '長',
   };
 
-  return (
-    <div className="w-full flex flex-wrap lg:flex-nowrap items-center justify-between gap-3.5 p-3.5 px-4 rounded-2xl bg-[#0e1424] border border-slate-800/80 hover:border-slate-700 transition-all shadow-md group">
-      {/* Left Column: Rank, Emoji, Trainee Names & Surface info */}
-      <div
-        onClick={() => onOpenModal(rank)}
-        className="flex items-center gap-3.5 min-w-0 cursor-pointer flex-1"
+  if (isCompact) {
+    return (
+      <Reorder.Item
+        value={trainee}
+        dragListener={false}
+        dragControls={dragControls}
+        onClick={() => onOpenActionMenu(rank)}
+        className="w-full flex items-center justify-between gap-2.5 p-2 px-3 rounded-xl bg-[#0e1424] border border-slate-800/80 hover:border-pink-500/40 hover:bg-[#11192e] transition-colors shadow-sm group select-none cursor-pointer"
+        whileDrag={{
+          scale: 1.02,
+          boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.5), 0px 0px 15px rgba(244, 63, 94, 0.3)',
+          zIndex: 50,
+          borderColor: '#f43f5e',
+        }}
       >
-        {getRankBadge(rank)}
+        {/* Left: Rank, Emoji & Trainee Name */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {getRankBadge(rank, true)}
+          <span className="text-xl shrink-0 select-none">{trainee.emoji}</span>
+          <div className="min-w-0 flex items-baseline gap-2 truncate">
+            <h4 className="text-xs font-bold text-white group-hover:text-pink-300 transition-colors truncate">
+              {trainee.nameEn}
+            </h4>
+            <span className="text-[10px] text-slate-400 font-medium truncate hidden md:inline">
+              ({trainee.nameJp})
+            </span>
+          </div>
+        </div>
+
+        {/* Center: Compact Aptitude Grades */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1">
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.style.front)}`}>
+              {stylePrefix.front}:{trainee.style.front}
+            </span>
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.style.pace)}`}>
+              {stylePrefix.pace}:{trainee.style.pace}
+            </span>
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.style.late)}`}>
+              {stylePrefix.late}:{trainee.style.late}
+            </span>
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.style.end)}`}>
+              {stylePrefix.end}:{trainee.style.end}
+            </span>
+          </div>
+
+          <div className="h-3 w-[1px] bg-slate-800 hidden sm:block" />
+
+          <div className="flex items-center gap-1 hidden sm:flex">
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.distance.short)}`}>
+              {distPrefix.short}:{trainee.distance.short}
+            </span>
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.distance.mile)}`}>
+              {distPrefix.mile}:{trainee.distance.mile}
+            </span>
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.distance.medium)}`}>
+              {distPrefix.medium}:{trainee.distance.medium}
+            </span>
+            <span className={`px-1.5 py-0.2 rounded border text-[10px] font-mono font-bold ${getGradeBadgeStyle(trainee.distance.long)}`}>
+              {distPrefix.long}:{trainee.distance.long}
+            </span>
+          </div>
+        </div>
+
+        {/* Right Controls: Delete + Drag Handle */}
+        <div className="flex items-center gap-1 shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(rank);
+            }}
+            className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+            title="Remove"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+
+          <div
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              dragControls.start(e);
+            }}
+            className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-200 p-1 rounded hover:bg-slate-800/80 touch-none transition-colors"
+            title="Drag to reorder"
+          >
+            <GripVertical className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      </Reorder.Item>
+    );
+  }
+
+  // Expanded View
+  return (
+    <Reorder.Item
+      value={trainee}
+      dragListener={false}
+      dragControls={dragControls}
+      onClick={() => onOpenActionMenu(rank)}
+      className="w-full flex flex-wrap lg:flex-nowrap items-center justify-between gap-3.5 p-3.5 px-4 rounded-2xl bg-[#0e1424] border border-slate-800/80 hover:border-pink-500/40 hover:bg-[#11192e] transition-colors shadow-md group select-none cursor-pointer"
+      whileDrag={{
+        scale: 1.02,
+        boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.5), 0px 0px 15px rgba(244, 63, 94, 0.3)',
+        zIndex: 50,
+        borderColor: '#f43f5e',
+      }}
+    >
+      {/* Left: Rank, Emoji, Trainee Names & Surfaces */}
+      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+        {getRankBadge(rank, false)}
         <span className="text-2xl shrink-0 select-none">{trainee.emoji}</span>
         <div className="min-w-0">
           <div className="flex items-baseline gap-2 truncate">
@@ -119,9 +224,8 @@ export const OshiCard: React.FC<OshiCardProps> = ({
         </div>
       </div>
 
-      {/* Middle Column: Running Style and Distance Aptitudes */}
+      {/* Middle: Style & Distance Aptitudes */}
       <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 shrink-0">
-        {/* Style Aptitudes */}
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider hidden xl:inline">Style:</span>
           <span className={`px-2 py-0.5 rounded-lg border text-[11px] font-mono font-bold ${getGradeBadgeStyle(trainee.style.front)}`}>
@@ -138,7 +242,6 @@ export const OshiCard: React.FC<OshiCardProps> = ({
           </span>
         </div>
 
-        {/* Distance Aptitudes */}
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider hidden xl:inline">Dist:</span>
           <span className={`px-2 py-0.5 rounded-lg border text-[11px] font-mono font-bold ${getGradeBadgeStyle(trainee.distance.short)}`}>
@@ -156,32 +259,30 @@ export const OshiCard: React.FC<OshiCardProps> = ({
         </div>
       </div>
 
-      {/* Right Column: Reorder and Delete Controls */}
-      <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-2">
+      {/* Right Controls: Delete + Drag Handle */}
+      <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-2" onClick={(e) => e.stopPropagation()}>
         <button
-          onClick={() => onMove(rank, 'up')}
-          disabled={rank === 1}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-          title="Move Rank Up"
-        >
-          <ChevronUp className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onMove(rank, 'down')}
-          disabled={rank === totalCount}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-20 disabled:hover:bg-transparent transition-all"
-          title="Move Rank Down"
-        >
-          <ChevronDown className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onRemove(rank)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all ml-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(rank);
+          }}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
           title="Remove from Roster"
         >
           <Trash2 className="w-4 h-4" />
         </button>
+
+        <div
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            dragControls.start(e);
+          }}
+          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800/80 touch-none transition-colors"
+          title="Drag to reorder"
+        >
+          <GripVertical className="w-4 h-4" />
+        </div>
       </div>
-    </div>
+    </Reorder.Item>
   );
 };
