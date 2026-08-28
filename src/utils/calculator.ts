@@ -17,12 +17,25 @@ export interface OshiSlot {
   trainee: Trainee | null;
 }
 
-export function calculateAnalysis(slots: OshiSlot[]) {
+export interface ArchetypeDetails {
+  badge: string;
+  title: string;
+  description: string;
+  strategy: string;
+  gradient: string;
+  border: string;
+  accent: string;
+}
+
+export function calculateAnalysis(slots: OshiSlot[], mode: TerminologyMode = 'global') {
   const active = slots.filter((s): s is { rank: number; trainee: Trainee } => s.trainee !== null);
 
   const styleRaw = { front: 0, pace: 0, late: 0, end: 0 };
   const distanceRaw = { short: 0, mile: 0, medium: 0, long: 0 };
   const surfaceRaw = { turf: 0, dirt: 0 };
+
+  let turfCount = 0;
+  let dirtCount = 0;
 
   active.forEach(({ rank, trainee }) => {
     const weight = 51 - rank; // Rank 1 = 50x, Rank 50 = 1x
@@ -39,55 +52,134 @@ export function calculateAnalysis(slots: OshiSlot[]) {
 
     surfaceRaw.turf += (GRADE_POINTS[trainee.surface.turf] || 0) * weight;
     surfaceRaw.dirt += (GRADE_POINTS[trainee.surface.dirt] || 0) * weight;
+
+    if (['S', 'A'].includes(trainee.surface.turf)) turfCount++;
+    if (['S', 'A', 'B'].includes(trainee.surface.dirt)) dirtCount++;
   });
 
-  const totalStyle = Object.values(styleRaw).reduce((a, b) => a + b, 0) || 1;
-  const totalDist = Object.values(distanceRaw).reduce((a, b) => a + b, 0) || 1;
-  const totalSurf = Object.values(surfaceRaw).reduce((a, b) => a + b, 0) || 1;
+  const totalStyle = Object.values(styleRaw).reduce((a, b) => a + b, 0);
+  const totalDist = Object.values(distanceRaw).reduce((a, b) => a + b, 0);
+  const totalSurf = Object.values(surfaceRaw).reduce((a, b) => a + b, 0);
 
   const stylePct = {
-    front: Math.round((styleRaw.front / totalStyle) * 100),
-    pace: Math.round((styleRaw.pace / totalStyle) * 100),
-    late: Math.round((styleRaw.late / totalStyle) * 100),
-    end: Math.round((styleRaw.end / totalStyle) * 100),
+    front: totalStyle > 0 ? Math.round((styleRaw.front / totalStyle) * 100) : 0,
+    pace: totalStyle > 0 ? Math.round((styleRaw.pace / totalStyle) * 100) : 0,
+    late: totalStyle > 0 ? Math.round((styleRaw.late / totalStyle) * 100) : 0,
+    end: totalStyle > 0 ? Math.round((styleRaw.end / totalStyle) * 100) : 0,
   };
 
   const distPct = {
-    short: Math.round((distanceRaw.short / totalDist) * 100),
-    mile: Math.round((distanceRaw.mile / totalDist) * 100),
-    medium: Math.round((distanceRaw.medium / totalDist) * 100),
-    long: Math.round((distanceRaw.long / totalDist) * 100),
+    short: totalDist > 0 ? Math.round((distanceRaw.short / totalDist) * 100) : 0,
+    mile: totalDist > 0 ? Math.round((distanceRaw.mile / totalDist) * 100) : 0,
+    medium: totalDist > 0 ? Math.round((distanceRaw.medium / totalDist) * 100) : 0,
+    long: totalDist > 0 ? Math.round((distanceRaw.long / totalDist) * 100) : 0,
   };
 
   const surfPct = {
-    turf: Math.round((surfaceRaw.turf / totalSurf) * 100),
-    dirt: Math.round((surfaceRaw.dirt / totalSurf) * 100),
+    turf: totalSurf > 0 ? Math.round((surfaceRaw.turf / totalSurf) * 100) : 0,
+    dirt: totalSurf > 0 ? Math.round((surfaceRaw.dirt / totalSurf) * 100) : 0,
   };
 
-  // Determine dominant archetype
   const maxStyleKey = (Object.keys(styleRaw) as Array<keyof typeof styleRaw>).reduce((a, b) =>
     styleRaw[a] > styleRaw[b] ? a : b
   );
 
-  let archetype = { title: 'Strategic Maestro (オールラウンダー)', description: 'Balanced across all tactical positions.' };
-  if (stylePct[maxStyleKey] >= 32) {
+  const maxDistKey = (Object.keys(distanceRaw) as Array<keyof typeof distanceRaw>).reduce((a, b) =>
+    distanceRaw[a] > distanceRaw[b] ? a : b
+  );
+
+  let archetype: ArchetypeDetails;
+
+  if (active.length === 0) {
+    archetype = {
+      badge: '🏇 Stable Initializing',
+      title: 'Awaiting Trainer Roster',
+      description: 'Select your favorite Uma Musume trainees to calculate your running style distribution, distance affinity radar, and personalized trainer archetype.',
+      strategy: 'Add your top Oshis in the ranking list to receive custom inheritance advice and race tactics.',
+      gradient: 'from-slate-850 via-slate-900 to-[#0e1424]',
+      border: 'border-slate-800',
+      accent: 'text-slate-400',
+    };
+  } else if (stylePct[maxStyleKey] >= 30) {
     switch (maxStyleKey) {
       case 'front':
-        archetype = { title: 'Blazing Frontrunner (逃げ切りスペシャリスト)', description: 'Values dominant early-race leads and blistering pacing.' };
+        archetype = {
+          badge: mode === 'global' ? '👑 Unstoppable Spearhead' : '👑 逃げ切りスペシャリスト',
+          title: mode === 'global' ? 'The Front Runner Trailblazer' : 'The Runner (逃げ) Specialist',
+          description: 'Your Top Oshis embody Front Runner tactics—controlling tempo from the gate, seizing lead position, and commanding the turf from wire to wire.',
+          strategy: 'Prioritize raw Speed & Power with early acceleration skills like Groundwork (地固め) and Escape Artist.',
+          gradient: 'from-blue-700 via-sky-600 to-cyan-500',
+          border: 'border-cyan-400/30',
+          accent: 'text-cyan-200',
+        };
         break;
       case 'pace':
-        archetype = { title: 'Tactical Pacesetter (王道先行マエストロ)', description: 'Favors solid mid-pack positioning and explosive late-corner burst.' };
+        archetype = {
+          badge: mode === 'global' ? '👑 Consistent Dominator' : '👑 先行マエストロ',
+          title: mode === 'global' ? 'The Pace Chaser Tactician' : 'The Leader (先行) Tactician',
+          description: 'Your Top Oshis embody Pace Chaser tactics—stability, composure, and lethal mid-race positioning for reliable high win rates.',
+          strategy: 'Prioritize Speed & Stamina with reliable acceleration skills like Speed Star and Racing Genius.',
+          gradient: 'from-emerald-700 via-emerald-600 to-teal-500',
+          border: 'border-emerald-400/30',
+          accent: 'text-emerald-200',
+        };
         break;
       case 'late':
-        archetype = { title: 'Midfield Infiltrator (疾風怒濤の差し)', description: 'Specializes in momentum building through the crowd and sweeping turns.' };
+        archetype = {
+          badge: mode === 'global' ? '👑 Midfield Infiltrator' : '👑 疾風怒濤の差し',
+          title: mode === 'global' ? 'The Late Surger Infiltrator' : 'The Betweener (差し) Infiltrator',
+          description: 'Your Top Oshis embody Late Surger tactics—biding time in the pack, carving lines through traffic, and exploding into the final stretch.',
+          strategy: "Prioritize Power & Acceleration skills like Let's Anabolic! (レッツ・アナボリック！) and Outpace.",
+          gradient: 'from-[#ea580c] via-[#f97316] to-[#f43f5e]',
+          border: 'border-orange-400/30',
+          accent: 'text-amber-200',
+        };
         break;
       case 'end':
-        archetype = { title: 'Backfield Sniper (一撃必殺の追込)', description: 'Prefers saving all stamina for a thunderous final-stretch sprint.' };
+        archetype = {
+          badge: mode === 'global' ? '👑 Backfield Assassin' : '👑 一撃必殺の追込',
+          title: mode === 'global' ? 'The End Closer Sniper' : 'The Closer (追込) Sniper',
+          description: 'Your Top Oshis embody End Closer tactics—conserving energy in the rear before unleashing a thunderous top-speed sprint.',
+          strategy: 'Prioritize Power & top-end Speed with iconic acceleration triggers like Straightaway Spurt (迫る影).',
+          gradient: 'from-rose-800 via-red-600 to-pink-600',
+          border: 'border-rose-400/30',
+          accent: 'text-rose-200',
+        };
         break;
     }
+  } else {
+    archetype = {
+      badge: mode === 'global' ? '👑 Strategic Maestro' : '👑 オールラウンダー',
+      title: mode === 'global' ? 'The Versatile All-Rounder' : 'The All-Rounder (オールラウンダー)',
+      description: 'Your Top Oshis span a balanced variety of racing disciplines, giving your stable supreme adaptability across every distance bracket.',
+      strategy: 'Build flexible team compositions with multi-style cornering skills and balanced inheritance lines.',
+      gradient: 'from-indigo-700 via-purple-600 to-pink-600',
+      border: 'border-purple-400/30',
+      accent: 'text-purple-200',
+    };
   }
 
-  return { activeCount: active.length, styleRaw, stylePct, distPct, surfPct, archetype };
+  const distNames: Record<string, string> = {
+    short: 'Short',
+    mile: 'Mile',
+    medium: 'Medium',
+    long: 'Long',
+  };
+
+  return {
+    activeCount: active.length,
+    styleRaw,
+    stylePct,
+    distPct,
+    distanceRaw,
+    surfPct,
+    turfCount,
+    dirtCount,
+    dominantStyleKey: maxStyleKey,
+    dominantDistKey: maxDistKey,
+    dominantDistName: distNames[maxDistKey],
+    archetype,
+  };
 }
 
 export function encodeRosterToUrl(slots: OshiSlot[]): string {
