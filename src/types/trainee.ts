@@ -26,6 +26,8 @@ export interface Trainee {
 }
 
 export type TerminologyMode = 'global' | 'jp';
+export type WeightingMode = 'equal' | 'tiered' | 'linear';
+export type AptitudeFilterMode = 'aOnly' | 'acViable' | 'allGrades';
 
 export interface StyleLabels {
   front: string;

@@ -1,16 +1,50 @@
-import { Trainee, AptitudeGrade, TerminologyMode, TERMINOLOGY } from '../types/trainee';
+import { Trainee, AptitudeGrade, TerminologyMode, WeightingMode, AptitudeFilterMode, TERMINOLOGY } from '../types/trainee';
 import LZString from 'lz-string';
 
-export const GRADE_POINTS: Record<AptitudeGrade, number> = {
-  S: 10,
-  A: 9,
-  B: 7,
-  C: 5,
-  D: 3,
-  E: 2,
-  F: 1,
-  G: 0,
+export const APTITUDE_MATRICES: Record<AptitudeFilterMode, Record<AptitudeGrade, number>> = {
+  aOnly: {
+    S: 10,
+    A: 10,
+    B: 0,
+    C: 0,
+    D: 0,
+    E: 0,
+    F: 0,
+    G: 0,
+  },
+  acViable: {
+    S: 10,
+    A: 10,
+    B: 5,
+    C: 2,
+    D: 0,
+    E: 0,
+    F: 0,
+    G: 0,
+  },
+  allGrades: {
+    S: 10,
+    A: 10,
+    B: 7,
+    C: 4,
+    D: 2,
+    E: 1,
+    F: 0.5,
+    G: 0,
+  },
 };
+
+export function getRankWeight(rank: number, mode: WeightingMode): number {
+  if (mode === 'equal') return 1.0;
+  if (mode === 'tiered') {
+    if (rank <= 5) return 4.0;
+    if (rank <= 15) return 2.5;
+    if (rank <= 30) return 1.5;
+    return 1.0;
+  }
+  // linear: 50 down to 1
+  return Math.max(1, 51 - rank);
+}
 
 export interface OshiSlot {
   rank: number;
@@ -27,8 +61,14 @@ export interface ArchetypeDetails {
   accent: string;
 }
 
-export function calculateAnalysis(slots: OshiSlot[], mode: TerminologyMode = 'global') {
+export function calculateAnalysis(
+  slots: OshiSlot[],
+  mode: TerminologyMode = 'global',
+  weightMode: WeightingMode = 'tiered',
+  filterMode: AptitudeFilterMode = 'aOnly'
+) {
   const active = slots.filter((s): s is { rank: number; trainee: Trainee } => s.trainee !== null);
+  const gradeMatrix = APTITUDE_MATRICES[filterMode];
 
   const styleRaw = { front: 0, pace: 0, late: 0, end: 0 };
   const distanceRaw = { short: 0, mile: 0, medium: 0, long: 0 };
@@ -38,20 +78,20 @@ export function calculateAnalysis(slots: OshiSlot[], mode: TerminologyMode = 'gl
   let dirtCount = 0;
 
   active.forEach(({ rank, trainee }) => {
-    const weight = 51 - rank; // Rank 1 = 50x, Rank 50 = 1x
+    const weight = getRankWeight(rank, weightMode);
 
-    styleRaw.front += (GRADE_POINTS[trainee.style.front] || 0) * weight;
-    styleRaw.pace += (GRADE_POINTS[trainee.style.pace] || 0) * weight;
-    styleRaw.late += (GRADE_POINTS[trainee.style.late] || 0) * weight;
-    styleRaw.end += (GRADE_POINTS[trainee.style.end] || 0) * weight;
+    styleRaw.front += (gradeMatrix[trainee.style.front] || 0) * weight;
+    styleRaw.pace += (gradeMatrix[trainee.style.pace] || 0) * weight;
+    styleRaw.late += (gradeMatrix[trainee.style.late] || 0) * weight;
+    styleRaw.end += (gradeMatrix[trainee.style.end] || 0) * weight;
 
-    distanceRaw.short += (GRADE_POINTS[trainee.distance.short] || 0) * weight;
-    distanceRaw.mile += (GRADE_POINTS[trainee.distance.mile] || 0) * weight;
-    distanceRaw.medium += (GRADE_POINTS[trainee.distance.medium] || 0) * weight;
-    distanceRaw.long += (GRADE_POINTS[trainee.distance.long] || 0) * weight;
+    distanceRaw.short += (gradeMatrix[trainee.distance.short] || 0) * weight;
+    distanceRaw.mile += (gradeMatrix[trainee.distance.mile] || 0) * weight;
+    distanceRaw.medium += (gradeMatrix[trainee.distance.medium] || 0) * weight;
+    distanceRaw.long += (gradeMatrix[trainee.distance.long] || 0) * weight;
 
-    surfaceRaw.turf += (GRADE_POINTS[trainee.surface.turf] || 0) * weight;
-    surfaceRaw.dirt += (GRADE_POINTS[trainee.surface.dirt] || 0) * weight;
+    surfaceRaw.turf += (gradeMatrix[trainee.surface.turf] || 0) * weight;
+    surfaceRaw.dirt += (gradeMatrix[trainee.surface.dirt] || 0) * weight;
 
     if (['S', 'A'].includes(trainee.surface.turf)) turfCount++;
     if (['S', 'A', 'B'].includes(trainee.surface.dirt)) dirtCount++;
@@ -176,8 +216,7 @@ export function calculateAnalysis(slots: OshiSlot[], mode: TerminologyMode = 'gl
     turfCount,
     dirtCount,
     dominantStyleKey: maxStyleKey,
-    dominantDistKey: maxDistKey,
-    dominantDistName: distNames[maxDistKey],
+    dominantDistName: distNames[maxDistKey] || 'Medium',
     archetype,
   };
 }
