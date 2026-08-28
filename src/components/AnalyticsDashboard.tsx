@@ -22,37 +22,36 @@ interface AnalyticsProps {
 }
 
 export const AnalyticsDashboard: React.FC<AnalyticsProps> = ({ mode, analysis }) => {
-  const labels = TERMINOLOGY[mode];
-  // Both default to 'bars' for visual consistency
+  const dict = TERMINOLOGY[mode];
   const [styleView, setStyleView] = useState<'bars' | 'radar'>('bars');
   const [distView, setDistView] = useState<'bars' | 'radar'>('bars');
 
   const styleRadarData = [
-    { subject: labels.front, value: analysis.stylePct.front },
-    { subject: labels.pace, value: analysis.stylePct.pace },
-    { subject: labels.late, value: analysis.stylePct.late },
-    { subject: labels.end, value: analysis.stylePct.end },
+    { subject: dict.style.front, value: analysis.stylePct.front },
+    { subject: dict.style.pace, value: analysis.stylePct.pace },
+    { subject: dict.style.late, value: analysis.stylePct.late },
+    { subject: dict.style.end, value: analysis.stylePct.end },
   ];
 
   const distRadarData = [
-    { subject: mode === 'global' ? 'Short' : '短距離', value: analysis.distPct.short },
-    { subject: mode === 'global' ? 'Mile' : 'マイル', value: analysis.distPct.mile },
-    { subject: mode === 'global' ? 'Medium' : '中距離', value: analysis.distPct.medium },
-    { subject: mode === 'global' ? 'Long' : '長距離', value: analysis.distPct.long },
+    { subject: dict.distance.short, value: analysis.distPct.short },
+    { subject: dict.distance.mile, value: analysis.distPct.mile },
+    { subject: dict.distance.medium, value: analysis.distPct.medium },
+    { subject: dict.distance.long, value: analysis.distPct.long },
   ];
 
   const styleItems = [
-    { label: labels.front, pct: analysis.stylePct.front, pts: analysis.styleRaw.front, color: 'bg-emerald-400' },
-    { label: labels.pace, pct: analysis.stylePct.pace, pts: analysis.styleRaw.pace, color: 'bg-amber-400' },
-    { label: labels.late, pct: analysis.stylePct.late, pts: analysis.styleRaw.late, color: 'bg-purple-500' },
-    { label: labels.end, pct: analysis.stylePct.end, pts: analysis.styleRaw.end, color: 'bg-rose-500' },
+    { label: dict.style.front, pct: analysis.stylePct.front, pts: analysis.styleRaw.front, color: 'bg-emerald-400' },
+    { label: dict.style.pace, pct: analysis.stylePct.pace, pts: analysis.styleRaw.pace, color: 'bg-amber-400' },
+    { label: dict.style.late, pct: analysis.stylePct.late, pts: analysis.styleRaw.late, color: 'bg-purple-500' },
+    { label: dict.style.end, pct: analysis.stylePct.end, pts: analysis.styleRaw.end, color: 'bg-rose-500' },
   ];
 
   const distItems = [
-    { label: mode === 'global' ? 'Short (短距離)' : '短距離 (Short)', pct: analysis.distPct.short, pts: analysis.distanceRaw.short, color: 'bg-pink-500' },
-    { label: mode === 'global' ? 'Mile (マイル)' : 'マイル (Mile)', pct: analysis.distPct.mile, pts: analysis.distanceRaw.mile, color: 'bg-sky-500' },
-    { label: mode === 'global' ? 'Medium (中距離)' : '中距離 (Medium)', pct: analysis.distPct.medium, pts: analysis.distanceRaw.medium, color: 'bg-indigo-500' },
-    { label: mode === 'global' ? 'Long (長距離)' : '長距離 (Long)', pct: analysis.distPct.long, pts: analysis.distanceRaw.long, color: 'bg-amber-400' },
+    { label: dict.distance.short, pct: analysis.distPct.short, pts: analysis.distanceRaw.short, color: 'bg-pink-500' },
+    { label: dict.distance.mile, pct: analysis.distPct.mile, pts: analysis.distanceRaw.mile, color: 'bg-sky-500' },
+    { label: dict.distance.medium, pct: analysis.distPct.medium, pts: analysis.distanceRaw.medium, color: 'bg-indigo-500' },
+    { label: dict.distance.long, pct: analysis.distPct.long, pts: analysis.distanceRaw.long, color: 'bg-amber-400' },
   ];
 
   return (
@@ -118,13 +117,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsProps> = ({ mode, analysis })
           )}
         </div>
 
-        {/* Insight Box (Hidden when count is 0) */}
         {analysis.activeCount > 0 && (
           <div className="mt-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300 animate-fadeIn">
             <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <p className="leading-snug">
               <strong className="text-amber-300 font-bold">Insight:</strong>{' '}
-              <span className="text-white font-semibold">{labels[analysis.dominantStyleKey]}</span> is your most frequent running strategy!
+              <span className="text-white font-semibold">{dict.style[analysis.dominantStyleKey]}</span> is your most frequent running strategy!
             </p>
           </div>
         )}
@@ -191,19 +189,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsProps> = ({ mode, analysis })
           )}
         </div>
 
-        {/* Insight Box (Hidden when count is 0) */}
         {analysis.activeCount > 0 && (
           <div className="mt-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300 animate-fadeIn">
             <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <p className="leading-snug">
               <strong className="text-amber-300 font-bold">Distance Specialty:</strong> Your roster peaks in{' '}
-              <span className="text-white font-semibold">{analysis.dominantDistName}</span> distance races.
+              <span className="text-white font-semibold">{analysis.dominantDistName}</span> races.
             </p>
           </div>
         )}
       </div>
 
-      {/* 3. SURFACE DISTRIBUTION (Expanded to Fill Container) */}
+      {/* 3. SURFACE DISTRIBUTION */}
       <div className="p-5 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl flex flex-col justify-between">
         <div className="flex-1 flex flex-col">
           <div className="flex items-center gap-2.5 mb-3">
@@ -213,31 +210,27 @@ export const AnalyticsDashboard: React.FC<AnalyticsProps> = ({ mode, analysis })
             <h3 className="text-sm font-bold text-white tracking-tight">Surface Distribution</h3>
           </div>
 
-          {/* Expanded Surface Cards */}
           <div className="grid grid-cols-2 gap-3 my-auto py-2">
-            {/* Turf Card */}
             <div className="p-5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex flex-col items-center justify-center text-center shadow-inner">
-              <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">TURF (芝)</span>
+              <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">{dict.surface.turf}</span>
               <span className="text-3xl sm:text-4xl font-black text-emerald-300 my-2 tracking-tight">{analysis.surfPct.turf}%</span>
               <span className="text-xs text-emerald-500 font-semibold">{analysis.turfCount} Umas</span>
             </div>
 
-            {/* Dirt Card */}
             <div className="p-5 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex flex-col items-center justify-center text-center shadow-inner">
-              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">DIRT (ダート)</span>
+              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">{dict.surface.dirt}</span>
               <span className="text-3xl sm:text-4xl font-black text-amber-300 my-2 tracking-tight">{analysis.surfPct.dirt}%</span>
               <span className="text-xs text-amber-500 font-semibold">{analysis.dirtCount} Umas</span>
             </div>
           </div>
         </div>
 
-        {/* Insight Box (Hidden when count is 0) */}
         {analysis.activeCount > 0 && (
           <div className="mt-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300 animate-fadeIn">
             <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <p className="leading-snug">
-              <strong className="text-amber-300 font-bold">Track Versatility:</strong> Your list is predominantly{' '}
-              <span className="text-white font-semibold">{analysis.surfPct.turf >= analysis.surfPct.dirt ? 'Turf' : 'Dirt'}</span> track oriented.
+              <strong className="text-amber-300 font-bold">Track Versatility:</strong> Your stable is predominantly{' '}
+              <span className="text-white font-semibold">{analysis.surfPct.turf >= analysis.surfPct.dirt ? dict.surface.turf : dict.surface.dirt}</span> oriented.
             </p>
           </div>
         )}

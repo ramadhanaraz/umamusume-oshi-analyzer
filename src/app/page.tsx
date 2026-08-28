@@ -8,13 +8,14 @@ import { Header, TabType } from '../components/Header';
 import { HeroArchetype } from '../components/HeroArchetype';
 import { SettingsBar } from '../components/SettingsBar';
 import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
+import { TopFiveOshis } from '../components/TopFiveOshis';
 import { RosterView } from '../components/views/RosterView';
 import { DatabaseView } from '../components/views/DatabaseView';
 import { ArchetypeView } from '../components/views/ArchetypeView';
 import { PresetsView } from '../components/views/PresetsView';
 import { TraineeModal } from '../components/TraineeModal';
 import { CardActionModal } from '../components/CardActionModal';
-import { Zap } from 'lucide-react';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export default function Home() {
   const [slots, setSlots] = useState<OshiSlot[]>(
@@ -26,6 +27,8 @@ export default function Home() {
   const [filterMode, setFilterMode] = useState<AptitudeFilterMode>('aOnly');
   const [activeSlotRank, setActiveSlotRank] = useState<number | null>(null);
   const [actionMenuRank, setActionMenuRank] = useState<number | null>(null);
+  const [openedFromActionMenu, setOpenedFromActionMenu] = useState(false);
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -44,31 +47,40 @@ export default function Home() {
   const analysis = calculateAnalysis(slots, mode, weightMode, filterMode);
   const labels = TERMINOLOGY[mode];
 
-  // Map of active trainee IDs to their current rank for instant duplicate lookup
   const activeTraineeRanks = activeTrainees.reduce<Record<string, number>>((acc, curr) => {
     acc[curr.trainee.id] = curr.rank;
     return acc;
   }, {});
 
+  // Handles both new assignments and automatic rank-swapping for existing trainees
   const handleSelectTrainee = (trainee: Trainee) => {
     if (!activeSlotRank) return;
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    
-    // Check if trainee already exists in another slot
     const existingIndex = current.findIndex((t) => t.id === trainee.id);
-    if (existingIndex !== -1 && existingIndex !== activeSlotRank - 1) {
-      alert(`${trainee.nameEn} is already in your Top 50 at Rank #${existingIndex + 1}!`);
-      return;
-    }
 
-    if (activeSlotRank <= current.length) {
-      current[activeSlotRank - 1] = trainee;
+    if (existingIndex !== -1) {
+      if (activeSlotRank <= current.length) {
+        // Swap trainees between the two ranks
+        const temp = current[activeSlotRank - 1];
+        current[activeSlotRank - 1] = current[existingIndex];
+        current[existingIndex] = temp;
+      } else {
+        // Move trainee to the end of the list
+        current.splice(existingIndex, 1);
+        current.push(trainee);
+      }
     } else {
-      current.push(trainee);
+      if (activeSlotRank <= current.length) {
+        current[activeSlotRank - 1] = trainee;
+      } else {
+        current.push(trainee);
+      }
     }
 
     setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
     setActiveSlotRank(null);
+    setActionMenuRank(null);
+    setOpenedFromActionMenu(false);
   };
 
   const handleAddFirstEmpty = (trainee: Trainee) => {
@@ -97,7 +109,6 @@ export default function Home() {
     setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
   };
 
-  // Drag-and-drop or Jump to Rank reorder
   const handleReorder = (sourceRank: number, targetRank: number) => {
     if (sourceRank === targetRank || targetRank < 1 || targetRank > activeCount) return;
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
@@ -110,10 +121,14 @@ export default function Home() {
     setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: newTrainees[i] || null })));
   };
 
-  const handleClear = () => {
-    if (confirm('Clear all slots in your Top 50 list?')) {
-      setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: null })));
+  const handleTriggerClear = () => {
+    if (activeCount > 0) {
+      setIsClearModalOpen(true);
     }
+  };
+  
+  const handleConfirmClear = () => {
+    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: null })));
   };
 
   const handleAutoFillRemaining = () => {
@@ -134,8 +149,10 @@ export default function Home() {
     const rows = activeTrainees.map((s) => [
       s.rank, `"${s.trainee.nameEn}"`, `"${s.trainee.nameJp}"`,
       s.trainee.surface.turf, s.trainee.surface.dirt,
-      s.trainee.distance.short, s.trainee.distance.mile, s.trainee.distance.medium, s.trainee.distance.long,
-      s.trainee.style.front, s.trainee.style.pace, s.trainee.style.late, s.trainee.style.end,
+      s.trainee.distance.short, s.trainee.distance.mile,
+      s.trainee.distance.medium, s.trainee.distance.long,
+      s.trainee.style.front, s.trainee.style.pace,
+      s.trainee.style.late, s.trainee.style.end,
     ]);
     const link = document.createElement('a');
     link.href = encodeURI('data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n'));
@@ -183,34 +200,16 @@ export default function Home() {
             <HeroArchetype archetype={analysis.archetype} activeCount={activeCount} onFillMore={() => setActiveTab('roster')} />
             <SettingsBar weightMode={weightMode} setWeightMode={setWeightMode} filterMode={filterMode} setFilterMode={setFilterMode} />
             <AnalyticsDashboard mode={mode} analysis={analysis} />
-
-            <div className="p-6 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl space-y-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-400" /> Top 5 Core Oshis
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {slots.slice(0, 5).map((slot) => (
-                  <div key={slot.rank} className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-6 h-6 rounded-md bg-amber-500/10 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0">
-                        {slot.rank}
-                      </span>
-                      {slot.trainee ? (
-                        <>
-                          <span className="text-xl shrink-0">{slot.trainee.emoji}</span>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{slot.trainee.nameEn}</p>
-                            <p className="text-[10px] text-slate-400 truncate">{slot.trainee.nameJp}</p>
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic">Empty Slot</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TopFiveOshis
+              slots={slots}
+              mode={mode}
+              onSelectSlot={(r) => {
+                setOpenedFromActionMenu(false);
+                setActiveSlotRank(r);
+              }}
+              onOpenActionMenu={(r) => setActionMenuRank(r)}
+              onManageTop50={() => setActiveTab('roster')}
+            />
           </div>
         )}
 
@@ -220,13 +219,16 @@ export default function Home() {
             activeCount={activeCount}
             mode={mode}
             onOpenActionMenu={(r) => setActionMenuRank(r)}
-            onOpenModal={(r) => setActiveSlotRank(r)}
+            onOpenModal={(r) => {
+              setOpenedFromActionMenu(false);
+              setActiveSlotRank(r);
+            }}
             onRemove={handleRemove}
             onMove={handleMove}
             onReorderList={handleReorderList}
             onLoadPreset={handleLoadPreset}
             onAutoFillRemaining={handleAutoFillRemaining}
-            onClear={handleClear}
+            onClear={handleTriggerClear}
             onGoToDatabase={() => setActiveTab('database')}
           />
         )}
@@ -240,7 +242,7 @@ export default function Home() {
         )}
 
         {activeTab === 'archetype' && (
-          <ArchetypeView archetype={analysis.archetype} labels={labels} styleRaw={analysis.styleRaw} />
+          <ArchetypeView archetype={analysis.archetype} mode={mode} styleRaw={analysis.styleRaw} />
         )}
 
         {activeTab === 'presets' && (
@@ -255,7 +257,19 @@ export default function Home() {
           trainees={TRAINEES}
           activeTraineeRanks={activeTraineeRanks}
           onSelect={handleSelectTrainee}
-          onClose={() => setActiveSlotRank(null)}
+          onClose={() => {
+            setActiveSlotRank(null);
+            setOpenedFromActionMenu(false);
+          }}
+          onBack={
+            openedFromActionMenu
+              ? () => {
+                  setActionMenuRank(activeSlotRank);
+                  setActiveSlotRank(null);
+                  setOpenedFromActionMenu(false);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -266,11 +280,27 @@ export default function Home() {
           trainee={activeMenuTrainee}
           totalCount={activeCount}
           onClose={() => setActionMenuRank(null)}
-          onChangeTrainee={(r) => setActiveSlotRank(r)}
+          onChangeTrainee={(r) => {
+            setActionMenuRank(null);
+            setActiveSlotRank(r);
+            setOpenedFromActionMenu(true);
+          }}
           onMoveToRank={handleReorder}
           onRemove={handleRemove}
         />
       )}
+
+      {/* Confirmation Dialog (Renders on Top) */}
+      <ConfirmModal
+        isOpen={isClearModalOpen}
+        title="Clear Top 50 Roster?"
+        description="Are you sure you want to remove all trainees from your Top 50 list? This action will reset all assigned slots and cannot be undone."
+        confirmLabel="Clear All Slots"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmClear}
+        onClose={() => setIsClearModalOpen(false)}
+      />
     </main>
   );
 }

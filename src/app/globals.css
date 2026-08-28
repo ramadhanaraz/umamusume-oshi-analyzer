@@ -13,21 +13,38 @@ body {
   min-height: 100vh;
 }
 
-/* Custom scrollbar for roster list */
+/* Sleek minimal dark scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  height: 4px;
+  width: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(15, 23, 42, 0.6);
-  border-radius: 8px;
+  border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #334155;
-  border-radius: 8px;
+  border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #f43f5e;
+}
+
+/* Firefox support */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 rgba(15, 23, 42, 0.6);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -2,19 +2,21 @@
 
 import React from 'react';
 import { ArchetypeDetails } from '../../utils/calculator';
-import { StyleLabels } from '../../types/trainee';
+import { TerminologyMode, TERMINOLOGY } from '../../types/trainee';
 
 interface ArchetypeViewProps {
   archetype: ArchetypeDetails;
-  labels: StyleLabels;
+  mode: TerminologyMode;
   styleRaw: { front: number; pace: number; late: number; end: number };
 }
 
 export const ArchetypeView: React.FC<ArchetypeViewProps> = ({
   archetype,
-  labels,
+  mode,
   styleRaw,
 }) => {
+  const dict = TERMINOLOGY[mode];
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-fadeIn">
       <div className={`p-6 sm:p-8 rounded-3xl bg-gradient-to-br ${archetype.gradient} border ${archetype.border} shadow-2xl space-y-3 text-white`}>
@@ -30,19 +32,19 @@ export const ArchetypeView: React.FC<ArchetypeViewProps> = ({
           <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Strategy Point Multipliers</h4>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
-              <span className="text-slate-400">{labels.front}:</span>
+              <span className="text-slate-400">{dict.style.front}:</span>
               <span className="font-mono font-bold text-white">{styleRaw.front.toFixed(1)} pts</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">{labels.pace}:</span>
+              <span className="text-slate-400">{dict.style.pace}:</span>
               <span className="font-mono font-bold text-white">{styleRaw.pace.toFixed(1)} pts</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">{labels.late}:</span>
+              <span className="text-slate-400">{dict.style.late}:</span>
               <span className="font-mono font-bold text-white">{styleRaw.late.toFixed(1)} pts</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">{labels.end}:</span>
+              <span className="text-slate-400">{dict.style.end}:</span>
               <span className="font-mono font-bold text-white">{styleRaw.end.toFixed(1)} pts</span>
             </div>
           </div>

@@ -42,7 +42,6 @@ export function getRankWeight(rank: number, mode: WeightingMode): number {
     if (rank <= 30) return 1.5;
     return 1.0;
   }
-  // linear: 50 down to 1
   return Math.max(1, 51 - rank);
 }
 
@@ -69,6 +68,7 @@ export function calculateAnalysis(
 ) {
   const active = slots.filter((s): s is { rank: number; trainee: Trainee } => s.trainee !== null);
   const gradeMatrix = APTITUDE_MATRICES[filterMode];
+  const dict = TERMINOLOGY[mode];
 
   const styleRaw = { front: 0, pace: 0, late: 0, end: 0 };
   const distanceRaw = { short: 0, mile: 0, medium: 0, long: 0 };
@@ -146,7 +146,7 @@ export function calculateAnalysis(
         archetype = {
           badge: mode === 'global' ? '👑 Unstoppable Spearhead' : '👑 逃げ切りスペシャリスト',
           title: mode === 'global' ? 'The Front Runner Trailblazer' : 'The Runner (逃げ) Specialist',
-          description: 'Your Top Oshis embody Front Runner tactics—controlling tempo from the gate, seizing lead position, and commanding the turf from wire to wire.',
+          description: `Your Top Oshis embody ${dict.style.front} tactics—controlling tempo from the gate, seizing lead position, and commanding the turf from wire to wire.`,
           strategy: 'Prioritize raw Speed & Power with early acceleration skills like Groundwork (地固め) and Escape Artist.',
           gradient: 'from-blue-700 via-sky-600 to-cyan-500',
           border: 'border-cyan-400/30',
@@ -157,7 +157,7 @@ export function calculateAnalysis(
         archetype = {
           badge: mode === 'global' ? '👑 Consistent Dominator' : '👑 先行マエストロ',
           title: mode === 'global' ? 'The Pace Chaser Tactician' : 'The Leader (先行) Tactician',
-          description: 'Your Top Oshis embody Pace Chaser tactics—stability, composure, and lethal mid-race positioning for reliable high win rates.',
+          description: `Your Top Oshis embody ${dict.style.pace} tactics—stability, composure, and lethal mid-race positioning for reliable high win rates.`,
           strategy: 'Prioritize Speed & Stamina with reliable acceleration skills like Speed Star and Racing Genius.',
           gradient: 'from-emerald-700 via-emerald-600 to-teal-500',
           border: 'border-emerald-400/30',
@@ -168,7 +168,7 @@ export function calculateAnalysis(
         archetype = {
           badge: mode === 'global' ? '👑 Midfield Infiltrator' : '👑 疾風怒濤の差し',
           title: mode === 'global' ? 'The Late Surger Infiltrator' : 'The Betweener (差し) Infiltrator',
-          description: 'Your Top Oshis embody Late Surger tactics—biding time in the pack, carving lines through traffic, and exploding into the final stretch.',
+          description: `Your Top Oshis embody ${dict.style.late} tactics—biding time in the pack, carving lines through traffic, and exploding into the final stretch.`,
           strategy: "Prioritize Power & Acceleration skills like Let's Anabolic! (レッツ・アナボリック！) and Outpace.",
           gradient: 'from-[#ea580c] via-[#f97316] to-[#f43f5e]',
           border: 'border-orange-400/30',
@@ -178,8 +178,8 @@ export function calculateAnalysis(
       case 'end':
         archetype = {
           badge: mode === 'global' ? '👑 Backfield Assassin' : '👑 一撃必殺の追込',
-          title: mode === 'global' ? 'The End Closer Sniper' : 'The Closer (追込) Sniper',
-          description: 'Your Top Oshis embody End Closer tactics—conserving energy in the rear before unleashing a thunderous top-speed sprint.',
+          title: mode === 'global' ? 'The End Closer Sniper' : 'The Chaser (追込) Sniper',
+          description: `Your Top Oshis embody ${dict.style.end} tactics—conserving energy in the rear before unleashing a thunderous top-speed sprint.`,
           strategy: 'Prioritize Power & top-end Speed with iconic acceleration triggers like Straightaway Spurt (迫る影).',
           gradient: 'from-rose-800 via-red-600 to-pink-600',
           border: 'border-rose-400/30',
@@ -199,13 +199,6 @@ export function calculateAnalysis(
     };
   }
 
-  const distNames: Record<string, string> = {
-    short: 'Short',
-    mile: 'Mile',
-    medium: 'Medium',
-    long: 'Long',
-  };
-
   return {
     activeCount: active.length,
     styleRaw,
@@ -216,7 +209,7 @@ export function calculateAnalysis(
     turfCount,
     dirtCount,
     dominantStyleKey: maxStyleKey,
-    dominantDistName: distNames[maxDistKey] || 'Medium',
+    dominantDistName: dict.distance[maxDistKey],
     archetype,
   };
 }

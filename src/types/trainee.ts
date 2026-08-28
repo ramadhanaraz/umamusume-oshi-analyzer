@@ -29,24 +29,60 @@ export type TerminologyMode = 'global' | 'jp';
 export type WeightingMode = 'equal' | 'tiered' | 'linear';
 export type AptitudeFilterMode = 'aOnly' | 'acViable' | 'allGrades';
 
-export interface StyleLabels {
-  front: string;
-  pace: string;
-  late: string;
-  end: string;
+export interface TerminologyDictionary {
+  surface: {
+    turf: string;
+    dirt: string;
+  };
+  style: {
+    front: string;
+    pace: string;
+    late: string;
+    end: string;
+  };
+  distance: {
+    short: string;
+    mile: string;
+    medium: string;
+    long: string;
+  };
 }
 
-export const TERMINOLOGY: Record<TerminologyMode, StyleLabels> = {
+export const TERMINOLOGY: Record<TerminologyMode, TerminologyDictionary> = {
   global: {
-    front: 'Front Runner',
-    pace: 'Pace Chaser',
-    late: 'Late Surger',
-    end: 'End Closer',
+    surface: {
+      turf: 'Turf',
+      dirt: 'Dirt',
+    },
+    style: {
+      front: 'Front Runner',
+      pace: 'Pace Chaser',
+      late: 'Late Surger',
+      end: 'End Closer',
+    },
+    distance: {
+      short: 'Sprint',
+      mile: 'Mile',
+      medium: 'Medium',
+      long: 'Long',
+    },
   },
   jp: {
-    front: 'Runner (逃げ)',
-    pace: 'Leader (先行)',
-    late: 'Betweener (差し)',
-    end: 'Closer (追込)',
+    surface: {
+      turf: 'Turf (芝)',
+      dirt: 'Dirt (ダート)',
+    },
+    style: {
+      front: 'Runner (逃げ)',
+      pace: 'Leader (先行)',
+      late: 'Betweener (差し)',
+      end: 'Chaser (追込)',
+    },
+    distance: {
+      short: 'Short (短距離)',
+      mile: 'Mile (マイル)',
+      medium: 'Medium (中距離)',
+      long: 'Long (長距離)',
+    },
   },
 };

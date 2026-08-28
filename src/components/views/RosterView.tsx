@@ -1,9 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Trainee, TerminologyMode } from '../../types/trainee';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Trainee, TerminologyMode, TERMINOLOGY } from '../../types/trainee';
 import { OshiCard } from '../OshiCard';
-import { Reorder } from 'framer-motion';
+import {
+  DndContext,
+  closestCenter,
+  pointerWithin,
+  CollisionDetection,
+  MeasuringStrategy,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverEvent,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
 import {
   Sparkles,
   Trash2,
@@ -24,7 +43,6 @@ interface RosterViewProps {
   onOpenActionMenu: (rank: number) => void;
   onOpenModal: (rank: number) => void;
   onRemove: (rank: number) => void;
-  onMove: (rank: number, direction: 'up' | 'down') => void;
   onReorderList: (reorderedTrainees: Trainee[]) => void;
   onLoadPreset: (type: 'random') => void;
   onAutoFillRemaining: () => void;
@@ -32,7 +50,7 @@ interface RosterViewProps {
   onGoToDatabase: () => void;
 }
 
-type AptitudeFilter = 'ALL' | 'TURF' | 'DIRT' | 'FRONT' | 'PACE' | 'LATE' | 'END' | 'SHORT' | 'MILE' | 'MEDIUM' | 'LONG';
+type AptitudeFilterTag = 'TURF' | 'DIRT' | 'FRONT' | 'PACE' | 'LATE' | 'END' | 'SHORT' | 'MILE' | 'MEDIUM' | 'LONG';
 
 interface TierDefinition {
   id: string;
@@ -50,7 +68,7 @@ interface TierDefinition {
 const TIERS: TierDefinition[] = [
   {
     id: 'tier-1',
-    name: 'I born for dem Oshis',
+    name: 'I was born for dem Oshis',
     minRank: 1,
     maxRank: 5,
     multiplier: '4.0× Multiplier',
@@ -105,7 +123,6 @@ export const RosterView: React.FC<RosterViewProps> = ({
   onOpenActionMenu,
   onOpenModal,
   onRemove,
-  onMove,
   onReorderList,
   onLoadPreset,
   onAutoFillRemaining,
@@ -115,19 +132,18 @@ export const RosterView: React.FC<RosterViewProps> = ({
   const [viewStyle, setViewStyle] = useState<'tiered' | 'continuous'>('tiered');
   const [isCompact, setIsCompact] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [filterTag, setFilterTag] = useState<AptitudeFilter>('ALL');
+  const [selectedFilters, setSelectedFilters] = useState<AptitudeFilterTag[]>([]);
 
-  const fullTraineeList = activeTrainees.map((s) => s.trainee);
+  const [orderedTrainees, setOrderedTrainees] = useState<Trainee[]>([]);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
-  const filteredTrainees = activeTrainees.filter(({ trainee }) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      trainee.nameEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      trainee.nameJp.includes(searchQuery);
+  const isFiltering = searchQuery !== '' || selectedFilters.length > 0;
+  const dict = TERMINOLOGY[mode];
 
-    if (!matchesSearch) return false;
+  const fullTraineeList = useMemo(() => activeTrainees.map((s) => s.trainee), [activeTrainees]);
 
-    switch (filterTag) {
+  const matchesTag = useCallback((trainee: Trainee, tag: AptitudeFilterTag): boolean => {
+    switch (tag) {
       case 'TURF':
         return ['S', 'A'].includes(trainee.surface.turf);
       case 'DIRT':
@@ -148,24 +164,150 @@ export const RosterView: React.FC<RosterViewProps> = ({
         return ['S', 'A'].includes(trainee.distance.medium);
       case 'LONG':
         return ['S', 'A'].includes(trainee.distance.long);
-      case 'ALL':
       default:
         return true;
     }
-  });
+  }, []);
 
-  const filterChips: { id: AptitudeFilter; label: string }[] = [
-    { id: 'ALL', label: 'All' },
-    { id: 'TURF', label: 'Turf (芝)' },
-    { id: 'DIRT', label: 'Dirt (ダート)' },
-    { id: 'FRONT', label: mode === 'global' ? 'Front Runner' : '逃げ' },
-    { id: 'PACE', label: mode === 'global' ? 'Pace Chaser' : '先行' },
-    { id: 'LATE', label: mode === 'global' ? 'Late Surger' : '差し' },
-    { id: 'END', label: mode === 'global' ? 'End Closer' : '追込' },
-    { id: 'SHORT', label: 'Short (短)' },
-    { id: 'MILE', label: 'Mile (マ)' },
-    { id: 'MEDIUM', label: 'Medium (中)' },
-    { id: 'LONG', label: 'Long (長)' },
+  // Filtered source trainees
+  const baseFilteredTrainees = useMemo(() => {
+    return activeTrainees.filter(({ trainee }) => {
+      const matchesSearch =
+        searchQuery === '' ||
+        trainee.nameEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        trainee.nameJp.includes(searchQuery);
+
+      if (!matchesSearch) return false;
+
+      if (selectedFilters.length > 0) {
+        return selectedFilters.every((tag) => matchesTag(trainee, tag));
+      }
+
+      return true;
+    });
+  }, [activeTrainees, searchQuery, selectedFilters, matchesTag]);
+
+  // Master slot positions for filtered sub-array projection
+  const filteredMasterIndices = useMemo(() => {
+    return baseFilteredTrainees.map(({ rank }) => rank - 1);
+  }, [baseFilteredTrainees]);
+
+  // Sync state only when not dragging
+  useEffect(() => {
+    if (!activeDragId) {
+      setOrderedTrainees(baseFilteredTrainees.map((item) => item.trainee));
+    }
+  }, [baseFilteredTrainees, activeDragId]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3,
+      },
+    })
+  );
+
+  const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
+    const pointerCollisions = pointerWithin(args);
+    return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
+  }, []);
+
+  const handleToggleFilter = (tag: AptitudeFilterTag) => {
+    setSelectedFilters((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleClearFilters = () => {
+    setSelectedFilters([]);
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
+  // Immediate in-memory reordering during drag
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setOrderedTrainees((prev) => {
+      const oldIndex = prev.findIndex((t) => t.id === active.id);
+      const newIndex = prev.findIndex((t) => t.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        return arrayMove(prev, oldIndex, newIndex);
+      }
+      return prev;
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+
+    let finalOrder = orderedTrainees;
+    if (over && active.id !== over.id) {
+      const oldIndex = orderedTrainees.findIndex((t) => t.id === active.id);
+      const newIndex = orderedTrainees.findIndex((t) => t.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        finalOrder = arrayMove(orderedTrainees, oldIndex, newIndex);
+      }
+    }
+
+    if (!isFiltering) {
+      onReorderList(finalOrder);
+    } else {
+      const updatedMaster = [...fullTraineeList];
+      filteredMasterIndices.forEach((masterIdx, i) => {
+        if (finalOrder[i]) {
+          updatedMaster[masterIdx] = finalOrder[i];
+        }
+      });
+      onReorderList(updatedMaster);
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragId(null);
+    setOrderedTrainees(baseFilteredTrainees.map((item) => item.trainee));
+  };
+
+  // Map trainees to their live calculated rank positions
+  const renderedItems = useMemo(() => {
+    return orderedTrainees.map((trainee, index) => {
+      const rank = isFiltering
+        ? filteredMasterIndices[index] + 1
+        : index + 1;
+      return { rank, trainee };
+    });
+  }, [orderedTrainees, isFiltering, filteredMasterIndices]);
+
+  // Live dynamic rank for the floating DragOverlay
+  const activeOverlayData = useMemo(() => {
+    if (!activeDragId) return null;
+    const currentIndex = orderedTrainees.findIndex((t) => t.id === activeDragId);
+    if (currentIndex === -1) return null;
+
+    const trainee = orderedTrainees[currentIndex];
+    const liveRank = isFiltering
+      ? filteredMasterIndices[currentIndex] + 1
+      : currentIndex + 1;
+
+    return { rank: liveRank, trainee };
+  }, [activeDragId, orderedTrainees, isFiltering, filteredMasterIndices]);
+
+  const filterChips: { id: AptitudeFilterTag; label: string }[] = [
+    { id: 'TURF', label: dict.surface.turf },
+    { id: 'DIRT', label: dict.surface.dirt },
+    { id: 'FRONT', label: dict.style.front },
+    { id: 'PACE', label: dict.style.pace },
+    { id: 'LATE', label: dict.style.late },
+    { id: 'END', label: dict.style.end },
+    { id: 'SHORT', label: dict.distance.short },
+    { id: 'MILE', label: dict.distance.mile },
+    { id: 'MEDIUM', label: dict.distance.medium },
+    { id: 'LONG', label: dict.distance.long },
   ];
 
   return (
@@ -174,11 +316,15 @@ export const RosterView: React.FC<RosterViewProps> = ({
       <div className="flex flex-wrap justify-between items-center gap-3 bg-[#0e1424] p-4 sm:p-5 rounded-3xl border border-slate-800/90 shadow-xl">
         <div>
           <h2 className="text-base sm:text-lg font-black text-white">Top 50 Oshi Ranking List</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Drag handle to smoothly reorder or click an Uma for options</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {isFiltering
+              ? 'Sorting filtered items within their current ranks'
+              : 'Drag handles to smoothly reorder across all ranks & tiers'}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Layout Toggle */}
+          {/* View Mode Toggle */}
           <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
             <button
               onClick={() => setViewStyle('tiered')}
@@ -228,7 +374,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
             </button>
           </div>
 
-          {/* Auto-Fill Remaining */}
+          {/* Fill Rest */}
           {activeCount > 0 && activeCount < 50 && (
             <button
               onClick={onAutoFillRemaining}
@@ -258,7 +404,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Search & Filters */}
+      {/* 2. Search & Filter Bar */}
       {activeCount > 0 && (
         <div className="p-3.5 rounded-2xl bg-[#0e1424] border border-slate-800/80 shadow-md space-y-3">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
@@ -281,35 +427,50 @@ export const RosterView: React.FC<RosterViewProps> = ({
               )}
             </div>
 
-            {(searchQuery || filterTag !== 'ALL') && (
+            {isFiltering && (
               <div className="text-[11px] text-slate-400 font-semibold px-2 shrink-0">
-                Showing <strong className="text-pink-400">{filteredTrainees.length}</strong> of {activeCount}
+                Showing <strong className="text-pink-400">{renderedItems.length}</strong> of {activeCount}
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-2 pt-0.5">
             <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider shrink-0 mr-1">
               Filter:
             </span>
-            {filterChips.map((chip) => (
-              <button
-                key={chip.id}
-                onClick={() => setFilterTag(chip.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
-                  filterTag === chip.id
-                    ? 'bg-pink-600 text-white shadow-sm'
-                    : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                }`}
-              >
-                {chip.label}
-              </button>
-            ))}
+
+            <button
+              onClick={handleClearFilters}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all shrink-0 ${
+                selectedFilters.length === 0
+                  ? 'bg-pink-600 text-white shadow-sm'
+                  : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
+              }`}
+            >
+              All
+            </button>
+
+            {filterChips.map((chip) => {
+              const isSelected = selectedFilters.includes(chip.id);
+              return (
+                <button
+                  key={chip.id}
+                  onClick={() => handleToggleFilter(chip.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all shrink-0 ${
+                    isSelected
+                      ? 'bg-pink-600 text-white shadow-sm'
+                      : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* 3. Empty State Screen */}
+      {/* 3. Empty State or DND Lists */}
       {activeCount === 0 ? (
         <div className="p-12 sm:p-16 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl flex flex-col items-center justify-center text-center space-y-4">
           <div className="text-5xl select-none">🏇</div>
@@ -327,123 +488,145 @@ export const RosterView: React.FC<RosterViewProps> = ({
             <span>Browse Database</span>
           </button>
         </div>
-      ) : viewStyle === 'tiered' ? (
-        /* 4. Tiered Fluid Reorder View */
-        <div className="space-y-6">
-          {TIERS.map((tier) => {
-            const tierTrainees = filteredTrainees.filter(
-              (t) => t.rank >= tier.minRank && t.rank <= tier.maxRank
-            );
-            const isCurrentFillingTier =
-              activeCount + 1 >= tier.minRank && activeCount + 1 <= tier.maxRank;
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetectionStrategy}
+          measuring={{
+            droppable: {
+              strategy: MeasuringStrategy.Always,
+            },
+          }}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext
+            items={orderedTrainees.map((t) => t.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {viewStyle === 'tiered' ? (
+              <div className="space-y-6">
+                {TIERS.map((tier) => {
+                  const tierTrainees = renderedItems.filter(
+                    (t) => t.rank >= tier.minRank && t.rank <= tier.maxRank
+                  );
+                  const isCurrentFillingTier =
+                    activeCount + 1 >= tier.minRank && activeCount + 1 <= tier.maxRank;
 
-            if (tierTrainees.length === 0 && (!isCurrentFillingTier || searchQuery || filterTag !== 'ALL')) {
-              return null;
-            }
+                  if (tierTrainees.length === 0 && (!isCurrentFillingTier || isFiltering)) {
+                    return null;
+                  }
 
-            return (
-              <div
-                key={tier.id}
-                className={`p-4 sm:p-5 rounded-3xl bg-[#0e1424] border ${tier.accentBorder} shadow-xl space-y-3`}
-              >
-                <div className={`p-3 sm:px-4 rounded-2xl ${tier.headerBg} border border-slate-800/60 flex flex-wrap items-center justify-between gap-2`}>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl select-none">{tier.badgeEmoji}</span>
-                    <div>
-                      <h3 className={`text-sm font-black ${tier.textColor}`}>
-                        {tier.name}
-                        <span className="text-xs font-semibold text-slate-400 ml-2">
-                          (Rank {tier.minRank}–{tier.maxRank})
-                        </span>
-                      </h3>
+                  const maxInTier = tier.maxRank - tier.minRank + 1;
+
+                  return (
+                    <div
+                      key={tier.id}
+                      className={`p-4 sm:p-5 rounded-3xl bg-[#0e1424] border ${tier.accentBorder} shadow-xl space-y-3.5`}
+                    >
+                      <div className={`p-3 sm:px-4 rounded-2xl ${tier.headerBg} border border-slate-800/60 flex flex-wrap items-center justify-between gap-2 shadow-sm`}>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl select-none">{tier.badgeEmoji}</span>
+                          <h3 className={`text-sm font-black ${tier.textColor}`}>
+                            {tier.name}
+                            <span className="text-xs font-semibold text-slate-400 ml-2">
+                              (Rank {tier.minRank}–{tier.maxRank})
+                            </span>
+                          </h3>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-bold ${tier.pillBg}`}>
+                            {tier.multiplier}
+                          </span>
+                          <span className="text-xs text-slate-400 font-semibold">
+                            {isFiltering ? `${tierTrainees.length} matches` : `${tierTrainees.length} / ${maxInTier}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 pt-0.5">
+                        {tierTrainees.map(({ rank, trainee }) => (
+                          <OshiCard
+                            key={trainee.id}
+                            rank={rank}
+                            trainee={trainee}
+                            mode={mode}
+                            totalCount={activeCount}
+                            isCompact={isCompact}
+                            onOpenActionMenu={onOpenActionMenu}
+                            onRemove={onRemove}
+                          />
+                        ))}
+
+                        {isCurrentFillingTier && activeCount < 50 && !isFiltering && (
+                          <button
+                            onClick={() => onOpenModal(activeCount + 1)}
+                            className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
+                          >
+                            <Plus className="w-4 h-4 text-slate-500 group-hover:text-pink-400 transition-colors" />
+                            <span>Add Rank #{activeCount + 1} Oshi</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {renderedItems.map(({ rank, trainee }) => (
+                  <OshiCard
+                    key={trainee.id}
+                    rank={rank}
+                    trainee={trainee}
+                    mode={mode}
+                    totalCount={activeCount}
+                    isCompact={isCompact}
+                    onOpenActionMenu={onOpenActionMenu}
+                    onRemove={onRemove}
+                  />
+                ))}
 
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-bold ${tier.pillBg}`}>
-                      {tier.multiplier}
-                    </span>
-                    <span className="text-xs text-slate-400 font-semibold">
-                      {tierTrainees.length} / {tier.maxRank - tier.minRank + 1}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Reorder Group per tier */}
-                <Reorder.Group
-                  axis="y"
-                  values={tierTrainees.map((s) => s.trainee)}
-                  onReorder={(newTierItems) => {
-                    // Update global full list preserving other tiers
-                    const newFull = [...fullTraineeList];
-                    const startIdx = tier.minRank - 1;
-                    newTierItems.forEach((t, i) => {
-                      newFull[startIdx + i] = t;
-                    });
-                    onReorderList(newFull);
-                  }}
-                  className="space-y-2 pt-1"
-                >
-                  {tierTrainees.map(({ rank, trainee }) => (
-                    <OshiCard
-                      key={trainee.id}
-                      rank={rank}
-                      trainee={trainee}
-                      mode={mode}
-                      totalCount={activeCount}
-                      isCompact={isCompact}
-                      onOpenActionMenu={onOpenActionMenu}
-                      onRemove={onRemove}
-                    />
-                  ))}
-                </Reorder.Group>
-
-                {isCurrentFillingTier && activeCount < 50 && !searchQuery && filterTag === 'ALL' && (
+                {activeCount < 50 && !isFiltering && (
                   <button
                     onClick={() => onOpenModal(activeCount + 1)}
-                    className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
+                    className="w-full mt-2.5 flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-[#0e1424]/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
                   >
                     <Plus className="w-4 h-4 text-slate-500 group-hover:text-pink-400 transition-colors" />
                     <span>Add Rank #{activeCount + 1} Oshi</span>
                   </button>
                 )}
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* 5. Continuous Fluid Reorder View */
-        <div>
-          <Reorder.Group
-            axis="y"
-            values={filteredTrainees.map((s) => s.trainee)}
-            onReorder={(newOrderedList) => onReorderList(newOrderedList)}
-            className="space-y-2"
+            )}
+          </SortableContext>
+
+          {/* Floating Drag Overlay with Live Dynamic Rank */}
+          <DragOverlay
+            dropAnimation={{
+              sideEffects: defaultDropAnimationSideEffects({
+                styles: {
+                  active: {
+                    opacity: '0.3',
+                  },
+                },
+              }),
+            }}
           >
-            {filteredTrainees.map(({ rank, trainee }) => (
+            {activeOverlayData ? (
               <OshiCard
-                key={trainee.id}
-                rank={rank}
-                trainee={trainee}
+                rank={activeOverlayData.rank}
+                trainee={activeOverlayData.trainee}
                 mode={mode}
                 totalCount={activeCount}
                 isCompact={isCompact}
-                onOpenActionMenu={onOpenActionMenu}
-                onRemove={onRemove}
+                isOverlay
               />
-            ))}
-          </Reorder.Group>
-
-          {activeCount < 50 && !searchQuery && filterTag === 'ALL' && (
-            <button
-              onClick={() => onOpenModal(activeCount + 1)}
-              className="w-full mt-2 flex items-center justify-center gap-2 p-3 rounded-2xl bg-[#0e1424]/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
-            >
-              <Plus className="w-4 h-4 text-slate-500 group-hover:text-pink-400 transition-colors" />
-              <span>Add Rank #{activeCount + 1} Oshi</span>
-            </button>
-          )}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   );
