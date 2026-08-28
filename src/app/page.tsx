@@ -224,7 +224,6 @@ export default function Home() {
               setActiveSlotRank(r);
             }}
             onRemove={handleRemove}
-            onMove={handleMove}
             onReorderList={handleReorderList}
             onLoadPreset={handleLoadPreset}
             onAutoFillRemaining={handleAutoFillRemaining}
