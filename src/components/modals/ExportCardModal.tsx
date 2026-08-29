@@ -3,17 +3,18 @@
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { Download, Share2, Copy, Check, X, Sparkles, Trophy } from 'lucide-react';
-import { StrategyScores, DistanceScores, ArchetypeResult } from '../../types/trainee';
-import { OshiSlot, encodeRosterToUrl } from '../../utils/calculator';
+import { ArchetypeDetails } from '../../utils/calculator';
+import { OshiSlot } from '../../utils/calculator';
+import { encodeRosterToUrl } from '../../utils/urlSerializer';
 import { AppLogo } from '../AppLogo';
 
 interface ExportCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   slots: OshiSlot[];
-  archetype?: ArchetypeResult;
-  strategyScores?: StrategyScores;
-  distanceScores?: DistanceScores;
+  archetype?: ArchetypeDetails;
+  strategyScores?: Record<string, number>;
+  distanceScores?: Record<string, number>;
 }
 
 const STYLE_LABELS: Record<string, string> = {
@@ -34,7 +35,15 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
   isOpen,
   onClose,
   slots = [],
-  archetype = { name: 'Balanced All-Rounder', title: 'Versatile Stable', description: 'Evenly distributed styles' },
+  archetype = {
+    badge: '🏇 Stable Archetype',
+    title: 'Balanced All-Rounder',
+    description: 'Evenly distributed styles',
+    strategy: '',
+    gradient: '',
+    border: '',
+    accent: '',
+  },
   strategyScores = { front: 0, pace: 0, late: 0, end: 0 },
   distanceScores = { short: 0, mile: 0, medium: 0, long: 0 },
 }) => {
@@ -44,8 +53,8 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
 
   if (!isOpen) return null;
 
-  const safeStrategy: StrategyScores = strategyScores || { front: 0, pace: 0, late: 0, end: 0 };
-  const safeDistance: DistanceScores = distanceScores || { short: 0, mile: 0, medium: 0, long: 0 };
+  const safeStrategy = strategyScores || { front: 0, pace: 0, late: 0, end: 0 };
+  const safeDistance = distanceScores || { short: 0, mile: 0, medium: 0, long: 0 };
   const top10 = (slots || []).slice(0, 10);
   const filledCount = (slots || []).filter((s) => s.trainee !== null).length;
 
@@ -159,7 +168,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                     Stable Archetype
                   </span>
                   <span className="text-sm font-black text-amber-300">
-                    {archetype?.name || 'All-Rounder'}
+                    {archetype?.title || archetype?.badge || 'All-Rounder'}
                   </span>
                 </div>
               </div>
@@ -209,28 +218,28 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                   {/* Style Distribution */}
                   <div className="space-y-2">
                     <span className="text-[11px] font-bold text-slate-300 block">
-                      Running Style Distribution
+                      Running Style Points
                     </span>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {Object.entries(safeStrategy).map(([key, val]) => (
                         <div key={key} className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
                           <span className="text-slate-400 text-[10px] truncate">{STYLE_LABELS[key] || key}</span>
-                          <span className="font-mono font-black text-cyan-300 text-[11px] ml-1">{val}</span>
+                          <span className="font-mono font-black text-cyan-300 text-[11px] ml-1">{Math.round(val)}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Distance Affinity */}
+                  {/* Distance Specialty */}
                   <div className="space-y-2">
                     <span className="text-[11px] font-bold text-slate-300 block">
-                      Distance Specialty
+                      Distance Affinity Points
                     </span>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {Object.entries(safeDistance).map(([key, val]) => (
                         <div key={key} className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
                           <span className="text-slate-400 text-[10px] truncate">{DISTANCE_LABELS[key] || key}</span>
-                          <span className="font-mono font-black text-rose-300 text-[11px] ml-1">{val}</span>
+                          <span className="font-mono font-black text-rose-300 text-[11px] ml-1">{Math.round(val)}</span>
                         </div>
                       ))}
                     </div>

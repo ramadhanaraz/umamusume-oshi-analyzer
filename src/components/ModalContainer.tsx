@@ -9,25 +9,21 @@ import { CardActionModal } from './modals/CardActionModal';
 import { ConfirmModal } from './modals/ConfirmModal';
 
 interface ModalContainerProps {
-  // Trainee Data
   trainees: Trainee[];
   slots: OshiSlot[];
   activeCount: number;
   activeTraineeRanks: Record<string, number>;
   analysis: AnalysisResult;
 
-  // Export Card Modal
   isExportOpen: boolean;
   onCloseExport: () => void;
 
-  // Trainee Selection Modal
   activeSlotRank: number | null;
   openedFromActionMenu: boolean;
   onSelectTrainee: (trainee: Trainee) => void;
   onCloseTraineeModal: () => void;
   onBackToActionMenu?: () => void;
 
-  // Card Action Modal
   actionMenuRank: number | null;
   activeMenuTrainee: Trainee | null;
   onCloseActionMenu: () => void;
@@ -35,12 +31,10 @@ interface ModalContainerProps {
   onMoveToRank: (sourceRank: number, targetRank: number) => void;
   onRemoveTrainee: (rank: number) => void;
 
-  // Clear Roster Confirmation Modal
   isClearModalOpen: boolean;
   onCloseClearModal: () => void;
   onConfirmClear: () => void;
 
-  // Overwrite Local Roster Confirmation Modal
   isImportConfirmOpen: boolean;
   onCloseImportConfirm: () => void;
   onConfirmImportShared: () => void;
@@ -74,17 +68,15 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
 }) => {
   return (
     <>
-      {/* 1. Share / Export Summary Card */}
       <ExportCardModal
         isOpen={isExportOpen}
         onClose={onCloseExport}
         slots={slots}
         archetype={analysis?.archetype}
-        strategyScores={analysis?.style || analysis?.strategy}
-        distanceScores={analysis?.distance}
+        strategyScores={analysis?.styleRaw}
+        distanceScores={analysis?.distanceRaw}
       />
 
-      {/* 2. Trainee Selection Picker */}
       {activeSlotRank !== null && (
         <TraineeModal
           rank={activeSlotRank}
@@ -96,7 +88,6 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
         />
       )}
 
-      {/* 3. Card Slot Action Menu */}
       {actionMenuRank !== null && activeMenuTrainee && (
         <CardActionModal
           rank={actionMenuRank}
@@ -109,7 +100,6 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
         />
       )}
 
-      {/* 4. Clear Roster Confirmation */}
       <ConfirmModal
         isOpen={isClearModalOpen}
         title="Clear Top 50 Roster?"
@@ -121,7 +111,6 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
         onClose={onCloseClearModal}
       />
 
-      {/* 5. Overwrite Local Storage Confirmation */}
       <ConfirmModal
         isOpen={isImportConfirmOpen}
         title="Replace Your Top 50 Roster?"

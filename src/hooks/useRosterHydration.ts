@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Trainee } from '../types/trainee';
-import { OshiSlot, encodeRosterToUrl, decodeRosterFromUrl } from '../utils/calculator';
+import { OshiSlot } from '../utils/calculator';
+import { encodeRosterToUrl, decodeRosterFromUrl } from '../utils/urlSerializer';
 import { TRAINEES } from '../data/trainees';
 
 const TOTAL_SLOTS = 50;
@@ -25,13 +25,11 @@ export function useRosterHydration() {
   const [copied, setCopied] = useState(false);
   const isHydratedRef = useRef(false);
 
-  // 1. Unified Hydration Lifecycle (URL param takes precedence over LocalStorage)
   useEffect(() => {
     if (isHydratedRef.current) return;
 
     let storedSlots = createEmptySlots();
 
-    // Read and cache existing LocalStorage first
     try {
       const saved = localStorage.getItem('umamusume-top50-roster');
       if (saved) {
@@ -47,7 +45,6 @@ export function useRosterHydration() {
       console.error('LocalStorage load failed:', e);
     }
 
-    // Check if opened via a shared link (?roster= or ?r=)
     const sharedParam = searchParams.get('roster') || searchParams.get('r');
     if (sharedParam) {
       const decodedTrainees = decodeRosterFromUrl(sharedParam, TRAINEES);
@@ -63,12 +60,10 @@ export function useRosterHydration() {
       }
     }
 
-    // Default: Apply user's local stored slots
     setSlots(storedSlots);
     isHydratedRef.current = true;
   }, [searchParams]);
 
-  // 2. Persist to LocalStorage (Blocked while in Shared Preview Mode)
   useEffect(() => {
     if (!isHydratedRef.current || isSharedPreview) return;
     try {
@@ -79,14 +74,12 @@ export function useRosterHydration() {
     }
   }, [slots, isSharedPreview]);
 
-  // Restore local list and leave preview mode
   const exitPreview = () => {
     setSlots(localSavedSlots || createEmptySlots());
     setIsSharedPreview(false);
     router.replace(pathname);
   };
 
-  // Overwrite local list with current shared preview
   const confirmImportShared = () => {
     try {
       const ids = slots.map((s) => s.trainee?.id || '');
@@ -99,7 +92,6 @@ export function useRosterHydration() {
     }
   };
 
-  // Copy shareable link to clipboard
   const handleShare = async () => {
     if (typeof window === 'undefined') return;
     const compressed = encodeRosterToUrl(slots);
