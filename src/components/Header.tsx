@@ -11,9 +11,11 @@ import {
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 
+export type TabType = 'dashboard' | 'roster' | 'database' | 'archetype' | 'presets';
+
 interface HeaderProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  activeTab: TabType;
+  setActiveTab: (tab: TabType) => void;
   mode: 'global' | 'jp';
   setMode: (m: 'global' | 'jp') => void;
   activeCount: number;
@@ -29,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeCount,
   onOpenExport,
 }) => {
-  const tabs = [
+  const tabs: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'dashboard', label: 'Dashboard & Analytics', icon: LayoutGrid },
     { id: 'roster', label: `My Top 50 List (${activeCount})`, icon: ListOrdered },
     { id: 'database', label: 'Uma Database (133)', icon: Database },
@@ -99,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Tab Navigation with Icons and Bottom Accent Border */}
+        {/* Tab Navigation */}
         <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto border-t border-slate-800/60 pt-1 -mb-[1px]">
           {tabs.map((tab) => {
             const Icon = tab.icon;
