@@ -5,6 +5,7 @@ export interface Trainee {
   nameEn: string;
   nameJp: string;
   emoji: string;
+  image?: string;
   baseRarity: 1 | 2 | 3;
   costumes: string[];
   surface: {
