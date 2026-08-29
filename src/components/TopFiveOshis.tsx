@@ -1,10 +1,11 @@
+// components/TopFiveOshis.tsx
 'use client';
 
-import React from 'react';
-import { TerminologyMode, TERMINOLOGY } from '../types/trainee';
+import React, { useState } from 'react';
+import { Crown, ChevronRight, MoreVertical, Plus } from 'lucide-react';
+import { Trainee, TerminologyMode } from '../types/trainee';
 import { OshiSlot } from '../utils/calculator';
-import { getGradeBadgeStyle, getGradeTextColor, getRankPillStyle } from '../utils/gradeStyles';
-import { ArrowRight } from 'lucide-react';
+import { getGradeBadgeStyle, getRankPillStyle } from '../utils/gradeStyles';
 
 interface TopFiveOshisProps {
   slots: OshiSlot[];
@@ -21,129 +22,280 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
   onOpenActionMenu,
   onManageTop50,
 }) => {
-  const topFive = slots.slice(0, 5);
-  const dict = TERMINOLOGY[mode];
+  const top5 = slots.slice(0, 5);
+  const [activeOverlay, setActiveOverlay] = useState<Record<number, boolean>>({});
 
-  const stylePrefix = {
-    front: mode === 'global' ? 'FR' : '逃',
-    pace: mode === 'global' ? 'PC' : '先',
-    late: mode === 'global' ? 'LS' : '差',
-    end: mode === 'global' ? 'EC' : '追',
+  const toggleOverlay = (rank: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveOverlay((prev) => ({
+      ...prev,
+      [rank]: !prev[rank],
+    }));
   };
 
-  const distPrefix = {
-    short: mode === 'global' ? 'SP' : '短',
-    mile: mode === 'global' ? 'MI' : 'マ',
-    medium: mode === 'global' ? 'MD' : '中',
-    long: mode === 'global' ? 'LG' : '長',
+  const getCardBorder = (rank: number): string => {
+    if (rank === 1) return 'border border-amber-400/90 shadow-lg shadow-amber-500/15';
+    if (rank === 2) return 'border border-slate-300/80 shadow-md shadow-slate-300/10';
+    if (rank === 3) return 'border border-amber-600/80 shadow-md shadow-amber-800/15';
+    return 'border border-slate-700/80 shadow-sm shadow-slate-950/40';
+  };
+
+  const labels = {
+    front: mode === 'jp' ? '逃' : 'FR',
+    pace: mode === 'jp' ? '先' : 'PC',
+    late: mode === 'jp' ? '差' : 'LS',
+    end: mode === 'jp' ? '追' : 'EC',
+    short: mode === 'jp' ? '短' : 'SP',
+    mile: mode === 'jp' ? 'マ' : 'MI',
+    medium: mode === 'jp' ? '中' : 'MD',
+    long: mode === 'jp' ? '長' : 'LG',
   };
 
   return (
-    <div className="p-6 rounded-3xl bg-[#0e1424] border border-amber-500/20 shadow-xl space-y-4">
-      {/* Section Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-base select-none">👑</span>
-          <h3 className="text-sm font-black text-amber-300 uppercase tracking-wider">
-            I WAS BORN FOR DEM OSHIS
-          </h3>
-          <span className="text-xs font-semibold text-slate-400">
-            (Top 5 Oshis • Rank 1–5)
-          </span>
+    <div className="bg-[#0b101e]/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col space-y-5 animate-fadeIn">
+      
+      {/* Unified Section Header */}
+      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
+            <Crown className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm sm:text-base font-black text-amber-400 tracking-tight">
+              I WAS BORN FOR DEM OSHIS
+            </h3>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Top 5 Crowned Oshis • Rank #1–#5 (Tier 1 Priority)'
+            </p>
+          </div>
         </div>
 
+        {/* Right Manage Button */}
         <button
           onClick={onManageTop50}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-pink-600/10 hover:bg-pink-600/20 text-pink-400 border border-pink-500/20 text-xs font-bold transition-all active:scale-95 shadow-sm"
+          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/70 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm"
         >
-          <span>Manage Top 50</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <span>{mode === 'jp' ? 'リスト管理' : 'Manage Top 50'}</span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
         </button>
       </div>
 
-      {/* 5 Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        {topFive.map((slot) => {
-          const trainee = slot.trainee;
-
-          if (!trainee) {
-            return (
-              <div
-                key={slot.rank}
-                onClick={() => onSelectSlot(slot.rank)}
-                className="p-4 rounded-2xl bg-slate-950/50 border border-dashed border-slate-800 hover:border-pink-500/40 hover:bg-slate-900/40 transition-all flex flex-col items-center justify-center text-center min-h-[175px] cursor-pointer group"
-              >
-                <span className={`px-2.5 py-0.5 rounded-md text-xs mb-2 ${getRankPillStyle(slot.rank)}`}>
-                  #{slot.rank}
-                </span>
-                <span className="text-xs text-slate-500 group-hover:text-pink-300 transition-colors font-medium">
-                  + Empty Slot
-                </span>
-              </div>
-            );
-          }
+      {/* Top 5 Showcase Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+        {top5.map((slot) => {
+          const t = slot.trainee;
+          const isOverlayOpen = activeOverlay[slot.rank];
 
           return (
             <div
               key={slot.rank}
-              onClick={() => onOpenActionMenu(slot.rank)}
-              className="p-3.5 rounded-2xl bg-[#0e1424] border border-slate-800/80 hover:border-pink-500/40 hover:bg-[#11192e] transition-all flex flex-col justify-between gap-2.5 shadow-md cursor-pointer group"
+              onClick={(e) => {
+                if (!t) {
+                  onSelectSlot(slot.rank);
+                } else {
+                  toggleOverlay(slot.rank, e);
+                }
+              }}
+              className={`group relative h-64 sm:h-72 rounded-2xl overflow-hidden bg-[#0d1426] cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] active:scale-98 ${getCardBorder(
+                slot.rank
+              )}`}
             >
-              {/* Top Sub-Bar: Rank Badge + Surface Badge */}
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
-                <span className={`px-2 py-0.5 rounded-md text-[11px] ${getRankPillStyle(slot.rank)}`}>
-                  #{slot.rank}
-                </span>
-                <div className="text-[10px] font-medium text-slate-400 flex items-center gap-1.5 bg-slate-950/90 px-2 py-0.5 rounded-md border border-slate-800/80 shadow-inner">
-                  <span>{dict.surface.turf}: <strong className={getGradeTextColor(trainee.surface.turf)}>{trainee.surface.turf}</strong></span>
-                  <span className="text-slate-600">•</span>
-                  <span>{dict.surface.dirt}: <strong className={getGradeTextColor(trainee.surface.dirt)}>{trainee.surface.dirt}</strong></span>
+              {t?.image ? (
+                <>
+                  {/* Chromatic background aura */}
+                  <img
+                    src={t.image}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover blur-xl opacity-80 scale-135 brightness-125 saturate-[2.2] pointer-events-none group-hover:opacity-95 transition-opacity"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/30 to-transparent pointer-events-none" />
+
+                  {/* Sharp Full Portrait */}
+                  <img
+                    src={t.image}
+                    alt={mode === 'jp' ? t.nameJp : t.nameEn}
+                    className="w-full h-full object-cover object-top relative z-0 drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
+                  />
+                </>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/80 text-slate-500 group-hover:text-slate-300 transition-colors p-3 text-center">
+                  <div className="w-11 h-11 rounded-full border border-dashed border-slate-700 flex items-center justify-center mb-2 group-hover:border-slate-500">
+                    <Plus className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <span className="text-xs font-bold">Assign #{slot.rank}</span>
                 </div>
+              )}
+
+              {/* Enlarged Rank Badge (1, 2, 3 scaled up; 4 & 5 styled in slate outline) */}
+              <div
+                className={`absolute top-2.5 left-2.5 h-7 min-w-[28px] px-2.5 py-0.5 rounded-lg flex items-center justify-center gap-1 text-xs sm:text-sm font-black tracking-tight z-20 transition-transform ${getRankPillStyle(
+                  slot.rank
+                )}`}
+              >
+                <span>{slot.rank === 1 ? '★ 1' : slot.rank}</span>
               </div>
 
-              {/* Character Identity */}
-              <div className="flex items-center gap-2.5 min-w-0 my-0.5">
-                <span className="text-2xl shrink-0 select-none">{trainee.emoji}</span>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-black text-white group-hover:text-pink-300 transition-colors truncate">
-                    {trainee.nameEn}
-                  </h4>
-                  <p className="text-[10px] text-slate-400 truncate">{trainee.nameJp}</p>
-                </div>
-              </div>
+              {/* Action Menu Trigger Button */}
+              {t && (
+                <button
+                  type="button"
+                  aria-label="Card Actions"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenActionMenu(slot.rank);
+                  }}
+                  className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 text-slate-300 hover:text-white backdrop-blur-md border border-white/10 z-20 transition-all active:scale-90 shadow-md"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              )}
 
-              {/* Bottom Matrix: Style & Distance Pills */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-800/60 text-[10px]">
-                <div className="flex items-center justify-between gap-1">
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.style.front)}`}>
-                    {stylePrefix.front}:{trainee.style.front}
-                  </span>
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.style.pace)}`}>
-                    {stylePrefix.pace}:{trainee.style.pace}
-                  </span>
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.style.late)}`}>
-                    {stylePrefix.late}:{trainee.style.late}
-                  </span>
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.style.end)}`}>
-                    {stylePrefix.end}:{trainee.style.end}
-                  </span>
-                </div>
+              {/* 1. Top Overlay: Track Surface in High-Contrast Frosted Pills */}
+              {t && (
+                <div
+                  className={`absolute inset-x-0 top-0 pt-11 pb-3 px-2 bg-gradient-to-b from-slate-950/95 via-slate-950/70 to-transparent z-10 transition-all duration-300 ${
+                    isOverlayOpen
+                      ? 'translate-y-0 opacity-100'
+                      : '-translate-y-full opacity-0 pointer-events-none group-hover:translate-y-0 group-hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    {/* Turf Capsule */}
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-800/80 shadow-md">
+                      <span className="text-slate-300 text-[9px] font-bold tracking-tight">Turf</span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded border text-[9px] font-black ${getGradeBadgeStyle(
+                          t.surface?.turf
+                        )}`}
+                      >
+                        {t.surface?.turf || 'G'}
+                      </span>
+                    </div>
 
-                <div className="flex items-center justify-between gap-1">
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.distance.short)}`}>
-                    {distPrefix.short}:{trainee.distance.short}
+                    {/* Dirt Capsule */}
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-800/80 shadow-md">
+                      <span className="text-slate-300 text-[9px] font-bold tracking-tight">Dirt</span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded border text-[9px] font-black ${getGradeBadgeStyle(
+                          t.surface?.dirt
+                        )}`}
+                      >
+                        {t.surface?.dirt || 'G'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Default Bottom Name Label (Fades when overlay is active) */}
+              {t && (
+                <div
+                  className={`absolute inset-x-0 bottom-0 pt-14 pb-2.5 px-3 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col transition-all duration-300 ${
+                    isOverlayOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 group-hover:opacity-0'
+                  }`}
+                >
+                  <span className="text-xs font-black text-white truncate drop-shadow-md tracking-tight">
+                    {mode === 'jp' ? t.nameJp : t.nameEn}
                   </span>
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.distance.mile)}`}>
-                    {distPrefix.mile}:{trainee.distance.mile}
-                  </span>
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.distance.medium)}`}>
-                    {distPrefix.medium}:{trainee.distance.medium}
-                  </span>
-                  <span className={`flex-1 text-center py-0.5 rounded border font-mono font-bold ${getGradeBadgeStyle(trainee.distance.long)}`}>
-                    {distPrefix.long}:{trainee.distance.long}
+                  <span className="text-[10px] text-slate-400 truncate drop-shadow-sm">
+                    {mode === 'jp' ? t.nameEn : t.nameJp}
                   </span>
                 </div>
-              </div>
+              )}
+
+              {/* 3. Bottom Slide-Up Aptitude Matrix Overlay with Frosted Plate */}
+              {t && (
+                <div
+                  className={`absolute inset-x-0 bottom-0 p-2.5 pt-8 bg-gradient-to-t from-slate-950 via-slate-950/95 via-slate-950/70 to-transparent z-10 flex flex-col space-y-1.5 transition-all duration-300 ${
+                    isOverlayOpen
+                      ? 'translate-y-0 opacity-100'
+                      : 'translate-y-full opacity-0 pointer-events-none group-hover:translate-y-0 group-hover:opacity-100'
+                  }`}
+                >
+                  {/* Trainee Title */}
+                  <div className="px-0.5">
+                    <h4 className="text-xs font-black text-white truncate tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                      {mode === 'jp' ? t.nameJp : t.nameEn}
+                    </h4>
+                  </div>
+
+                  {/* 2x4 Aptitude Matrix Grid Plate */}
+                  <div className="space-y-1 w-full bg-slate-950/75 backdrop-blur-md p-1 rounded-xl border border-slate-800/80 shadow-xl">
+                    {/* Row 1: Running Style (FR, PC, LS, EC) */}
+                    <div className="grid grid-cols-4 gap-1 text-center font-mono">
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.style?.front
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.front}:</span>
+                        <strong className="font-black">{t.style?.front || 'G'}</strong>
+                      </div>
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.style?.pace
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.pace}:</span>
+                        <strong className="font-black">{t.style?.pace || 'G'}</strong>
+                      </div>
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.style?.late
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.late}:</span>
+                        <strong className="font-black">{t.style?.late || 'G'}</strong>
+                      </div>
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.style?.end
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.end}:</span>
+                        <strong className="font-black">{t.style?.end || 'G'}</strong>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Distance Range (SP, MI, MD, LG) */}
+                    <div className="grid grid-cols-4 gap-1 text-center font-mono">
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.distance?.short
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.short}:</span>
+                        <strong className="font-black">{t.distance?.short || 'G'}</strong>
+                      </div>
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.distance?.mile
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.mile}:</span>
+                        <strong className="font-black">{t.distance?.mile || 'G'}</strong>
+                      </div>
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.distance?.medium
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.medium}:</span>
+                        <strong className="font-black">{t.distance?.medium || 'G'}</strong>
+                      </div>
+                      <div
+                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                          t.distance?.long
+                        )}`}
+                      >
+                        <span className="opacity-70 text-[8px] font-medium">{labels.long}:</span>
+                        <strong className="font-black">{t.distance?.long || 'G'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

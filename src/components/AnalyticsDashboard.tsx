@@ -1,240 +1,287 @@
+// components/AnalyticsDashboard.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { Flame, Compass, Sparkles, Layers, Route } from 'lucide-react';
 import { TerminologyMode, TERMINOLOGY } from '../types/trainee';
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { Flame, Target, Sprout, Lightbulb, BarChart2, Compass } from 'lucide-react';
+import { AnalysisResult } from '../utils/calculator';
 
-interface AnalyticsProps {
+interface AnalyticsDashboardProps {
   mode: TerminologyMode;
-  analysis: {
-    activeCount: number;
-    styleRaw: { front: number; pace: number; late: number; end: number };
-    stylePct: { front: number; pace: number; late: number; end: number };
-    distanceRaw: { short: number; mile: number; medium: number; long: number };
-    distPct: { short: number; mile: number; medium: number; long: number };
-    surfPct: { turf: number; dirt: number };
-    turfCount: number;
-    dirtCount: number;
-    dominantStyleKey: 'front' | 'pace' | 'late' | 'end';
-    dominantDistName: string;
-  };
+  analysis: AnalysisResult;
 }
 
-export const AnalyticsDashboard: React.FC<AnalyticsProps> = ({ mode, analysis }) => {
-  const dict = TERMINOLOGY[mode];
-  const [styleView, setStyleView] = useState<'bars' | 'radar'>('bars');
-  const [distView, setDistView] = useState<'bars' | 'radar'>('bars');
+export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, analysis }) => {
+  const dict = TERMINOLOGY[mode] || TERMINOLOGY.global;
+  const {
+    stylePct,
+    distPct,
+    surfPct,
+    styleRaw,
+    distanceRaw,
+    surfaceRaw,
+    turfCount,
+    dirtCount,
+    dominantStyleKey,
+    dominantDistName,
+  } = analysis;
 
-  const styleRadarData = [
-    { subject: dict.style.front, value: analysis.stylePct.front },
-    { subject: dict.style.pace, value: analysis.stylePct.pace },
-    { subject: dict.style.late, value: analysis.stylePct.late },
-    { subject: dict.style.end, value: analysis.stylePct.end },
-  ];
-
-  const distRadarData = [
-    { subject: dict.distance.short, value: analysis.distPct.short },
-    { subject: dict.distance.mile, value: analysis.distPct.mile },
-    { subject: dict.distance.medium, value: analysis.distPct.medium },
-    { subject: dict.distance.long, value: analysis.distPct.long },
-  ];
-
-  const styleItems = [
-    { label: dict.style.front, pct: analysis.stylePct.front, pts: analysis.styleRaw.front, color: 'bg-emerald-400' },
-    { label: dict.style.pace, pct: analysis.stylePct.pace, pts: analysis.styleRaw.pace, color: 'bg-amber-400' },
-    { label: dict.style.late, pct: analysis.stylePct.late, pts: analysis.styleRaw.late, color: 'bg-purple-500' },
-    { label: dict.style.end, pct: analysis.stylePct.end, pts: analysis.styleRaw.end, color: 'bg-rose-500' },
-  ];
-
-  const distItems = [
-    { label: dict.distance.short, pct: analysis.distPct.short, pts: analysis.distanceRaw.short, color: 'bg-pink-500' },
-    { label: dict.distance.mile, pct: analysis.distPct.mile, pts: analysis.distanceRaw.mile, color: 'bg-sky-500' },
-    { label: dict.distance.medium, pct: analysis.distPct.medium, pts: analysis.distanceRaw.medium, color: 'bg-indigo-500' },
-    { label: dict.distance.long, pct: analysis.distPct.long, pts: analysis.distanceRaw.long, color: 'bg-amber-400' },
-  ];
+  const styleKeys: Array<keyof typeof dict.style> = ['front', 'pace', 'late', 'end'];
+  const distanceKeys: Array<keyof typeof dict.distance> = ['short', 'mile', 'medium', 'long'];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      {/* 1. RUNNING STYLE DISTRIBUTION */}
-      <div className="p-5 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl flex flex-col justify-between">
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
-                <Flame className="w-4 h-4" />
-              </div>
-              <h3 className="text-sm font-bold text-white tracking-tight">Running Style Distribution</h3>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch animate-fadeIn">
+      
+      {/* 1. Running Style Distribution Card (Blue/Cyan Theme) */}
+      <div className="bg-[#0b101e]/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+        
+        {/* Card Header */}
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-inner">
+              <Flame className="w-5 h-5" />
             </div>
-            <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
-              <button
-                onClick={() => setStyleView('bars')}
-                className={`p-1 rounded transition-colors ${styleView === 'bars' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-                title="Progress Bars"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setStyleView('radar')}
-                className={`p-1 rounded transition-colors ${styleView === 'radar' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-                title="Radar Chart"
-              >
-                <Compass className="w-3.5 h-3.5" />
-              </button>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                Running Style Share
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Tactical execution & pacing tendency
+              </p>
             </div>
           </div>
 
-          {styleView === 'bars' ? (
-            <div className="space-y-3.5 my-2">
-              {styleItems.map((item) => (
-                <div key={item.label} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-300">{item.label}</span>
-                    <span className="text-slate-200 font-bold">
-                      {item.pct}% <span className="text-slate-500 font-normal">({item.pts.toFixed(1)} pts)</span>
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800/60">
-                    <div
-                      style={{ width: `${Math.min(100, Math.max(0, item.pct))}%` }}
-                      className={`h-full ${item.color} rounded-full transition-all duration-500`}
-                    />
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-mono font-bold">
+              100% Total
+            </span>
+          </div>
+        </div>
+
+        {/* Style Gauge Rows */}
+        <div className="flex-1 flex flex-col justify-between py-1 space-y-2.5 mb-4">
+          {styleKeys.map((key) => {
+            const pct = stylePct[key] || 0;
+            const pts = styleRaw[key] || 0;
+            const label = dict.style[key];
+            const isDominant = dominantStyleKey === key || pct >= 30;
+
+            return (
+              <div
+                key={key}
+                className={`px-3.5 py-2.5 rounded-2xl border transition-all ${
+                  isDominant
+                    ? 'bg-slate-900/95 border-slate-700/80 shadow-md ring-1 ring-cyan-500/10'
+                    : 'bg-slate-900/60 border-slate-800/80'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span
+                    className={`text-xs font-semibold ${
+                      isDominant ? 'text-cyan-300 font-bold' : 'text-slate-300'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                  <div className="flex items-center gap-1.5 font-mono">
+                    <span className="text-xs font-black text-white">{pct}%</span>
+                    <span className="text-[11px] text-slate-500">({pts.toFixed(1)} pts)</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="w-full h-48 my-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={styleRadarData}>
-                  <PolarGrid stroke="#1e293b" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 60]} tick={false} stroke="#1e293b" />
-                  <Radar dataKey="value" stroke="#a855f7" fill="#a855f7" fillOpacity={0.45} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+
+                {/* Progress Track */}
+                <div className="w-full h-2 rounded-full bg-slate-950 border border-slate-800/80 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      isDominant
+                        ? 'bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-500 shadow-sm shadow-cyan-500/25'
+                        : 'bg-slate-700'
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {analysis.activeCount > 0 && (
-          <div className="mt-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300 animate-fadeIn">
-            <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <p className="leading-snug">
-              <strong className="text-amber-300 font-bold">Insight:</strong>{' '}
-              <span className="text-white font-semibold">{dict.style[analysis.dominantStyleKey]}</span> is your most frequent running strategy!
-            </p>
-          </div>
-        )}
+        {/* Bottom Style Insight */}
+        <div className="min-h-[50px] bg-slate-950/60 border border-slate-800/80 rounded-2xl px-4 py-2.5 flex items-center gap-3 text-xs">
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="text-slate-300 text-[11px] leading-snug">
+            <strong className="text-amber-300">
+              Insight:
+            </strong>{' '}
+            {dict.style[dominantStyleKey as keyof typeof dict.style]} is your most prominent tactical archetype ({stylePct[dominantStyleKey as keyof typeof stylePct]}%).
+          </span>
+        </div>
+
       </div>
 
-      {/* 2. DISTANCE DISTRIBUTION */}
-      <div className="p-5 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl flex flex-col justify-between">
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
-                <Target className="w-4 h-4" />
-              </div>
-              <h3 className="text-sm font-bold text-white tracking-tight">Distance Distribution</h3>
+      {/* 2. Distance & Surface Distribution Card (Red/Rose Theme) */}
+      <div className="bg-[#0b101e]/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+        
+        {/* Card Header */}
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-inner">
+              <Compass className="w-5 h-5" />
             </div>
-            <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
-              <button
-                onClick={() => setDistView('bars')}
-                className={`p-1 rounded transition-colors ${distView === 'bars' ? 'bg-sky-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-                title="Progress Bars"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setDistView('radar')}
-                className={`p-1 rounded transition-colors ${distView === 'radar' ? 'bg-sky-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
-                title="Radar View"
-              >
-                <Compass className="w-3.5 h-3.5" />
-              </button>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                Distance & Track Affinity
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Track range capacity & surface adaptability
+              </p>
             </div>
           </div>
 
-          {distView === 'bars' ? (
-            <div className="space-y-3.5 my-2">
-              {distItems.map((item) => (
-                <div key={item.label} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-300">{item.label}</span>
-                    <span className="text-slate-200 font-bold">
-                      {item.pct}% <span className="text-slate-500 font-normal">({item.pts.toFixed(1)} pts)</span>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono font-bold">
+              100% Total
+            </span>
+          </div>
+        </div>
+
+        {/* Section A & B Body */}
+        <div className="flex-1 flex flex-col justify-between py-1 space-y-3 mb-4">
+          
+          {/* Section A: Distance Affinity (2x2 Grid) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-300">
+              <Route className="w-3.5 h-3.5 text-rose-400" />
+              <span>Distance Range</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {distanceKeys.map((key) => {
+                const pct = distPct[key] || 0;
+                const pts = distanceRaw[key] || 0;
+                const label = dict.distance[key];
+                const isDominant = pct >= 30 || Object.entries(distPct).every(([, v]) => pct >= v);
+
+                return (
+                  <div
+                    key={key}
+                    className={`p-2.5 rounded-2xl border transition-all flex flex-col justify-between space-y-1.5 ${
+                      isDominant
+                        ? 'bg-slate-900/95 border-slate-700/80 shadow-md ring-1 ring-rose-500/10'
+                        : 'bg-slate-900/60 border-slate-800/80'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span
+                        className={`text-[11px] truncate font-semibold ${
+                          isDominant ? 'text-rose-300 font-bold' : 'text-slate-300'
+                        }`}
+                      >
+                        {label}
+                      </span>
+                      <span className="font-mono font-black text-xs text-white">{pct}%</span>
+                    </div>
+
+                    {/* Progress Track */}
+                    <div className="w-full h-2 rounded-full bg-slate-950 border border-slate-800/80 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          isDominant
+                            ? 'bg-gradient-to-r from-rose-500 via-pink-500 to-rose-400 shadow-sm shadow-rose-500/25'
+                            : 'bg-slate-700'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                      />
+                    </div>
+
+                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                      {pts.toFixed(1)} pts
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800/60">
-                    <div
-                      style={{ width: `${Math.min(100, Math.max(0, item.pct))}%` }}
-                      className={`h-full ${item.color} rounded-full transition-all duration-500`}
-                    />
-                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section B: Surface Affinity (Turf vs. Dirt) */}
+          <div className="space-y-1.5 pt-1.5 border-t border-slate-800/60">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+              <div className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Track Surface</span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400">
+                Turf {turfCount} / Dirt {dirtCount} Viable
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              
+              {/* Turf Card */}
+              <div className="p-2.5 rounded-2xl bg-slate-900/70 border border-slate-800/80 flex flex-col justify-between space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
+                    🌿 {dict.surface.turf}
+                  </span>
+                  <span className="font-mono font-black text-xs text-white">
+                    {surfPct?.turf || 0}%
+                  </span>
                 </div>
-              ))}
+
+                <div className="w-full h-2 rounded-full bg-slate-950 border border-slate-800/80 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700 shadow-sm shadow-emerald-500/20"
+                    style={{ width: `${Math.min(100, Math.max(0, surfPct?.turf || 0))}%` }}
+                  />
+                </div>
+
+                <span className="text-[10px] font-mono text-slate-500 text-right">
+                  {(surfaceRaw?.turf || 0).toFixed(1)} pts
+                </span>
+              </div>
+
+              {/* Dirt Card */}
+              <div className="p-2.5 rounded-2xl bg-slate-900/70 border border-slate-800/80 flex flex-col justify-between space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                    🏜️ {dict.surface.dirt}
+                  </span>
+                  <span className="font-mono font-black text-xs text-white">
+                    {surfPct?.dirt || 0}%
+                  </span>
+                </div>
+
+                <div className="w-full h-2 rounded-full bg-slate-950 border border-slate-800/80 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 transition-all duration-700 shadow-sm shadow-amber-500/20"
+                    style={{ width: `${Math.min(100, Math.max(0, surfPct?.dirt || 0))}%` }}
+                  />
+                </div>
+
+                <span className="text-[10px] font-mono text-slate-500 text-right">
+                  {(surfaceRaw?.dirt || 0).toFixed(1)} pts
+                </span>
+              </div>
+
             </div>
-          ) : (
-            <div className="w-full h-48 my-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={distRadarData}>
-                  <PolarGrid stroke="#1e293b" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 60]} tick={false} stroke="#1e293b" />
-                  <Radar dataKey="value" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.45} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          </div>
+
         </div>
 
-        {analysis.activeCount > 0 && (
-          <div className="mt-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300 animate-fadeIn">
-            <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <p className="leading-snug">
-              <strong className="text-amber-300 font-bold">Distance Specialty:</strong> Your roster peaks in{' '}
-              <span className="text-white font-semibold">{analysis.dominantDistName}</span> races.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* 3. SURFACE DISTRIBUTION */}
-      <div className="p-5 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl flex flex-col justify-between">
-        <div className="flex-1 flex flex-col">
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <Sprout className="w-4 h-4" />
-            </div>
-            <h3 className="text-sm font-bold text-white tracking-tight">Surface Distribution</h3>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 my-auto py-2">
-            <div className="p-5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex flex-col items-center justify-center text-center shadow-inner">
-              <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">{dict.surface.turf}</span>
-              <span className="text-3xl sm:text-4xl font-black text-emerald-300 my-2 tracking-tight">{analysis.surfPct.turf}%</span>
-              <span className="text-xs text-emerald-500 font-semibold">{analysis.turfCount} Umas</span>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex flex-col items-center justify-center text-center shadow-inner">
-              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">{dict.surface.dirt}</span>
-              <span className="text-3xl sm:text-4xl font-black text-amber-300 my-2 tracking-tight">{analysis.surfPct.dirt}%</span>
-              <span className="text-xs text-amber-500 font-semibold">{analysis.dirtCount} Umas</span>
-            </div>
-          </div>
+        {/* Bottom Distance & Surface Insight */}
+        <div className="min-h-[50px] bg-slate-950/60 border border-slate-800/80 rounded-2xl px-4 py-2.5 flex items-center gap-3 text-xs">
+          <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
+          <span className="text-slate-300 text-[11px] leading-snug">
+            <strong className="text-rose-300">
+              Distance Specialty:
+            </strong>{' '}
+            Peak focus in <strong className="text-white">{dominantDistName}</strong> races with{' '}
+            <strong className="text-emerald-300">{turfCount} Turf</strong> &{' '}
+            <strong className="text-amber-300">{dirtCount} Dirt</strong> runners.
+          </span>
         </div>
 
-        {analysis.activeCount > 0 && (
-          <div className="mt-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300 animate-fadeIn">
-            <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <p className="leading-snug">
-              <strong className="text-amber-300 font-bold">Track Versatility:</strong> Your stable is predominantly{' '}
-              <span className="text-white font-semibold">{analysis.surfPct.turf >= analysis.surfPct.dirt ? dict.surface.turf : dict.surface.dirt}</span> oriented.
-            </p>
-          </div>
-        )}
       </div>
+
     </div>
   );
 };

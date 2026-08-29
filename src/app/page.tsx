@@ -241,6 +241,7 @@ function HomeContent() {
         activeCount={activeCount}
         activeTraineeRanks={activeTraineeRanks}
         analysis={analysis}
+        mode={mode}
         isExportOpen={isExportOpen}
         onCloseExport={() => setIsExportOpen(false)}
         activeSlotRank={activeSlotRank}

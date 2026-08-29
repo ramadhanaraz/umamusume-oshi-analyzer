@@ -1,3 +1,5 @@
+// utils/gradeStyles.ts
+
 import { AptitudeGrade } from '../types/trainee';
 
 /**
@@ -50,9 +52,15 @@ export const getGradeTextColor = (grade?: AptitudeGrade): string => {
  * Returns Tailwind classes for rank number indicators
  */
 export const getRankPillStyle = (rank: number): string => {
-  if (rank === 1) return 'bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-500/20';
-  if (rank === 2) return 'bg-slate-200 text-slate-950 font-black shadow-sm';
-  if (rank === 3) return 'bg-amber-700 text-amber-100 font-black shadow-sm';
-  if (rank <= 5) return 'bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold';
-  return 'bg-slate-900 text-slate-400 border border-slate-800 font-bold';
+  if (rank === 1) {
+    return 'bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 font-black shadow-md shadow-amber-500/25';
+  }
+  if (rank === 2) {
+    return 'bg-gradient-to-r from-slate-100 to-slate-300 text-slate-950 font-black shadow-md shadow-slate-300/20';
+  }
+  if (rank === 3) {
+    return 'bg-gradient-to-r from-amber-600 to-amber-700 text-amber-100 font-black shadow-md shadow-amber-900/30';
+  }
+  // Ranks 4, 5, and above now use matching gray/slate frosted outline
+  return 'bg-slate-900/90 text-slate-300 border border-slate-700/80 font-black backdrop-blur-sm shadow-md';
 };

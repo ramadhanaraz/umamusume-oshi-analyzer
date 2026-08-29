@@ -311,7 +311,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
   ];
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto animate-fadeIn">
+    <div className="space-y-4 w-full animate-fadeIn">
       {/* 1. Header Toolbar */}
       <div className="flex flex-wrap justify-between items-center gap-3 bg-[#0e1424] p-4 sm:p-5 rounded-3xl border border-slate-800/90 shadow-xl">
         <div>

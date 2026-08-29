@@ -12,8 +12,8 @@ const DiscordIcon: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.
 
 export const Footer: React.FC = () => {
   const currentYear = 2026;
-  const appVersion = 'v1.2.0-phase3';
-  const lastUpdated = 'August 2026';
+  const appVersion = 'v1.2.0-phase4';
+  const lastUpdated = '29 August 2026';
 
   return (
     <footer className="w-full bg-[#080c18] border-t border-slate-800/80 text-slate-400 text-xs mt-16">

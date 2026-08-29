@@ -205,6 +205,7 @@ export function calculateAnalysis(
     distPct,
     distanceRaw,
     surfPct,
+    surfaceRaw,
     turfCount,
     dirtCount,
     dominantStyleKey: maxStyleKey,

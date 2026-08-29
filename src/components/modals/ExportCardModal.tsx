@@ -1,10 +1,12 @@
+// components/modals/ExportCardModal.tsx
 'use client';
 
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
-import { Download, Share2, Copy, Check, X, Sparkles, Trophy } from 'lucide-react';
-import { ArchetypeDetails } from '../../utils/calculator';
-import { OshiSlot } from '../../utils/calculator';
+import { Download, Share2, Copy, Check, X, Sparkles, Crown } from 'lucide-react';
+import { TerminologyMode, TERMINOLOGY } from '../../types/trainee';
+import { ArchetypeDetails, OshiSlot } from '../../utils/calculator';
+import { getRankPillStyle } from '../../utils/gradeStyles';
 import { encodeRosterToUrl } from '../../utils/urlSerializer';
 import { AppLogo } from '../AppLogo';
 
@@ -12,38 +14,30 @@ interface ExportCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   slots: OshiSlot[];
+  mode?: TerminologyMode;
   archetype?: ArchetypeDetails;
+  stylePct?: Record<string, number>;
+  distPct?: Record<string, number>;
   strategyScores?: Record<string, number>;
   distanceScores?: Record<string, number>;
 }
-
-const STYLE_LABELS: Record<string, string> = {
-  front: 'Runner (逃げ)',
-  pace: 'Leader (先行)',
-  late: 'Betweener (差し)',
-  end: 'Chaser (追込)',
-};
-
-const DISTANCE_LABELS: Record<string, string> = {
-  short: 'Short (短距離)',
-  mile: 'Mile (マイル)',
-  medium: 'Medium (中距離)',
-  long: 'Long (長距離)',
-};
 
 export const ExportCardModal: React.FC<ExportCardModalProps> = ({
   isOpen,
   onClose,
   slots = [],
+  mode = 'global',
   archetype = {
     badge: '🏇 Stable Archetype',
-    title: 'Balanced All-Rounder',
+    title: 'The Leader (先行) Tactician',
     description: 'Evenly distributed styles',
     strategy: '',
     gradient: '',
     border: '',
     accent: '',
   },
+  stylePct,
+  distPct,
   strategyScores = { front: 0, pace: 0, late: 0, end: 0 },
   distanceScores = { short: 0, mile: 0, medium: 0, long: 0 },
 }) => {
@@ -53,10 +47,33 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
 
   if (!isOpen) return null;
 
-  const safeStrategy = strategyScores || { front: 0, pace: 0, late: 0, end: 0 };
-  const safeDistance = distanceScores || { short: 0, mile: 0, medium: 0, long: 0 };
-  const top10 = (slots || []).slice(0, 10);
+  const dict = TERMINOLOGY[mode] || TERMINOLOGY.global;
   const filledCount = (slots || []).filter((s) => s.trainee !== null).length;
+
+  const slot1 = slots[0];
+  const slot2 = slots[1];
+  const slot3 = slots[2];
+  const slot4 = slots[3];
+  const slot5 = slots[4];
+
+  // Percentage Calculations
+  const totalStylePoints = Object.values(strategyScores).reduce((a, b) => a + b, 0) || 1;
+  const computedStylePct =
+    stylePct || {
+      front: Math.round(((strategyScores.front || 0) / totalStylePoints) * 100),
+      pace: Math.round(((strategyScores.pace || 0) / totalStylePoints) * 100),
+      late: Math.round(((strategyScores.late || 0) / totalStylePoints) * 100),
+      end: Math.round(((strategyScores.end || 0) / totalStylePoints) * 100),
+    };
+
+  const totalDistPoints = Object.values(distanceScores).reduce((a, b) => a + b, 0) || 1;
+  const computedDistPct =
+    distPct || {
+      short: Math.round(((distanceScores.short || 0) / totalDistPoints) * 100),
+      mile: Math.round(((distanceScores.mile || 0) / totalDistPoints) * 100),
+      medium: Math.round(((distanceScores.medium || 0) / totalDistPoints) * 100),
+      long: Math.round(((distanceScores.long || 0) / totalDistPoints) * 100),
+    };
 
   const handleDownloadPng = async () => {
     if (!cardRef.current) return;
@@ -94,15 +111,25 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
     }
   };
 
+  const getCardBorder = (rank: number): string => {
+    if (rank === 1) return 'border border-amber-400/90 shadow-lg shadow-amber-500/15';
+    if (rank === 2) return 'border border-slate-300/80 shadow-md shadow-slate-300/10';
+    if (rank === 3) return 'border border-amber-600/80 shadow-md shadow-amber-800/15';
+    return 'border border-slate-700/80 shadow-sm shadow-slate-950/40';
+  };
+
+  const styleKeys = ['front', 'pace', 'late', 'end'] as const;
+  const distanceKeys = ['short', 'mile', 'medium', 'long'] as const;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fadeIn">
+      <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[95vh]">
         
-        {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+        {/* Modal Window Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/70">
           <div className="flex items-center gap-2.5">
-            <Share2 className="w-5 h-5 text-pink-400" />
-            <h2 className="text-base font-bold text-white tracking-tight">
+            <Share2 className="w-4 h-4 text-pink-400" />
+            <h2 className="text-sm font-bold text-white tracking-tight">
               Export Stable Summary Card
             </h2>
           </div>
@@ -114,58 +141,59 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Content */}
-        <div className="p-6 overflow-y-auto space-y-6 flex flex-col items-center">
+        {/* Modal Window Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex flex-col items-center">
           
-          {/* Action Bar */}
-          <div className="w-full flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 p-3.5 rounded-2xl border border-slate-800/80">
+          {/* Quick Actions Bar */}
+          <div className="w-full flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 p-3 rounded-2xl border border-slate-800/80">
             <div className="text-xs text-slate-400">
               Assigned Slots: <strong className="text-white font-mono font-bold">{filledCount}/50</strong>
             </div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleCopyLink}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95"
               >
-                {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
                 <span>{copiedLink ? 'Link Copied!' : 'Copy Shareable Link'}</span>
               </button>
               <button
                 onClick={handleDownloadPng}
                 disabled={isExporting}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-pink-500/25 transition-all disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-pink-500/25 transition-all active:scale-95 disabled:opacity-50"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
                 <span>{isExporting ? 'Rendering HD Image...' : 'Download PNG Card'}</span>
               </button>
             </div>
           </div>
 
-          {/* Export Canvas Frame */}
-          <div className="w-full overflow-x-auto flex justify-center pb-2">
+          {/* Export Canvas */}
+          <div className="w-full flex justify-center">
             <div
               ref={cardRef}
-              className="w-[960px] min-w-[960px] bg-[#070b16] border border-slate-800 rounded-2xl p-7 text-white space-y-6 relative overflow-hidden select-none"
+              className="w-full max-w-[900px] bg-[#070b16] border border-slate-800 rounded-2xl p-6 text-white space-y-4 relative overflow-hidden select-none"
               style={{
-                backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(244, 63, 94, 0.18), transparent)',
+                backgroundImage:
+                  'radial-gradient(ellipse 80% 50% at 50% -15%, rgba(244, 63, 94, 0.15), transparent), radial-gradient(ellipse 60% 40% at 95% 95%, rgba(56, 189, 248, 0.08), transparent)',
               }}
             >
-              {/* Card Banner */}
-              <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
-                <div className="flex items-center gap-3.5">
+              {/* Card Banner (English Structure) */}
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <div className="flex items-center gap-3">
                   <AppLogo size="md" />
                   <div>
-                    <h1 className="text-lg font-black tracking-tight leading-none bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent">
+                    <h1 className="text-base sm:text-lg font-black tracking-tight leading-none bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent">
                       Umamusume Top 50 Oshi Strategy Analyzer
                     </h1>
-                    <p className="text-[11px] text-slate-400 mt-1">
+                    <p className="text-[11px] text-slate-400 mt-1 font-medium">
                       Stable Archetype Profile & Top Trainee Strategy Distribution
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block">
-                    Stable Archetype
+                    STABLE ARCHETYPE
                   </span>
                   <span className="text-sm font-black text-amber-300">
                     {archetype?.title || archetype?.badge || 'All-Rounder'}
@@ -173,75 +201,226 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                 </div>
               </div>
 
-              {/* Main Content: Top 10 + Scores */}
-              <div className="grid grid-cols-12 gap-6">
+              {/* Main Content Layout */}
+              <div className="grid grid-cols-12 gap-5 items-stretch pt-0.5">
                 
-                {/* Top 10 Showcase */}
-                <div className="col-span-7 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-                    <Trophy className="w-4 h-4 text-amber-400" />
-                    <span>Top 10 Crowned Oshis</span>
+                {/* Left: Top 5 Showcase */}
+                <div className="col-span-7 flex flex-col justify-between space-y-2.5">
+                  
+                  {/* Dashboard Subheader (English) */}
+                  <div className="flex items-center gap-2 pb-0.5">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span className="font-black text-amber-400 uppercase tracking-wider text-[13px] leading-none drop-shadow-sm">
+                      I WAS BORN FOR DEM OSHIS
+                    </span>
+                    <span className="text-slate-400 text-xs font-semibold tracking-tight leading-none">
+                      (Top 5 Oshis • Rank 1–5)
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2.5">
-                    {top10.map((slot) => {
-                      const t = slot.trainee;
-                      return (
-                        <div
-                          key={slot.rank}
-                          className="flex flex-col items-center bg-slate-900/90 border border-slate-800/90 rounded-xl p-2 relative overflow-hidden text-center"
-                        >
-                          <div className="absolute top-1 left-1.5 px-1.5 py-0.5 rounded-md bg-black/60 text-[9px] font-mono font-black text-amber-300">
-                            #{slot.rank}
-                          </div>
-
-                          <div className="w-13 h-13 my-1 rounded-lg overflow-hidden bg-slate-950 border border-slate-700/60 flex items-center justify-center">
-                            {t?.image ? (
-                              <img src={t.image} alt={t.nameEn} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-lg">{t?.emoji || '❓'}</span>
-                            )}
-                          </div>
-
-                          <span className="text-[10px] font-bold text-slate-200 truncate w-full mt-0.5">
-                            {t?.nameEn || 'Unassigned'}
-                          </span>
+                  {/* Grid: #1 Left (6 cols), #2-#5 Right 2x2 (6 cols) */}
+                  <div className="grid grid-cols-12 gap-2.5 h-[340px]">
+                    
+                    {/* Rank #1 Spotlight */}
+                    <div
+                      className={`col-span-6 h-full relative rounded-2xl overflow-hidden bg-[#0d1426] transition-all ${getCardBorder(
+                        1
+                      )}`}
+                    >
+                      {slot1?.trainee?.image ? (
+                        <>
+                          <img
+                            src={slot1.trainee.image}
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-80 scale-135 brightness-125 saturate-[2.5] pointer-events-none"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/30 to-transparent" />
+                          
+                          <img
+                            src={slot1.trainee.image}
+                            alt={mode === 'jp' ? slot1.trainee.nameJp : slot1.trainee.nameEn}
+                            className="w-full h-full object-cover object-top relative z-0 drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
+                          />
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl bg-slate-900 text-slate-500">
+                          {slot1?.trainee?.emoji || '❓'}
                         </div>
-                      );
-                    })}
+                      )}
+
+                      {/* Rank #1 Badge */}
+                      <div
+                        className={`absolute top-2.5 left-2.5 h-6 px-2 rounded-lg flex items-center gap-1 text-xs font-black z-10 ${getRankPillStyle(
+                          1
+                        )}`}
+                      >
+                        <span>★ 1</span>
+                      </div>
+
+                      {/* Bottom Name Vignette (Dynamic Name) */}
+                      <div className="absolute inset-x-0 bottom-0 pt-16 pb-3 px-3 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10">
+                        <p className="text-sm font-black text-white leading-tight drop-shadow-md tracking-tight">
+                          {slot1?.trainee
+                            ? mode === 'jp'
+                              ? slot1.trainee.nameJp || slot1.trainee.nameEn
+                              : slot1.trainee.nameEn
+                            : 'Unassigned'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Ranks #2 to #5: 2x2 Grid */}
+                    <div className="col-span-6 grid grid-cols-2 grid-rows-2 gap-2.5 h-full">
+                      {[slot2, slot3, slot4, slot5].map((slot, idx) => {
+                        const rankNum = idx + 2;
+                        const t = slot?.trainee;
+
+                        return (
+                          <div
+                            key={rankNum}
+                            className={`relative rounded-xl overflow-hidden bg-[#0d1426] transition-all ${getCardBorder(
+                              rankNum
+                            )}`}
+                          >
+                            {t?.image ? (
+                              <>
+                                <img
+                                  src={t.image}
+                                  alt=""
+                                  aria-hidden="true"
+                                  className="absolute inset-0 w-full h-full object-cover blur-xl opacity-80 scale-135 brightness-125 saturate-[2.5] pointer-events-none"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/30 to-transparent" />
+                                
+                                <img
+                                  src={t.image}
+                                  alt={mode === 'jp' ? t.nameJp : t.nameEn}
+                                  className="w-full h-full object-cover object-top relative z-0 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+                                />
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-2xl bg-slate-900 text-slate-500">
+                                {t?.emoji || '❓'}
+                              </div>
+                            )}
+
+                            {/* Rank Badge */}
+                            <div
+                              className={`absolute top-2 left-2 h-5 min-w-[20px] px-1.5 rounded-md flex items-center justify-center text-[10px] font-black z-10 ${getRankPillStyle(
+                                rankNum
+                              )}`}
+                            >
+                              <span>{rankNum}</span>
+                            </div>
+
+                            {/* Bottom Name Vignette (Dynamic Name) */}
+                            <div className="absolute inset-x-0 bottom-0 pt-8 pb-1.5 px-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-10">
+                              <p className="text-[11px] font-black text-white truncate leading-tight drop-shadow-sm">
+                                {t
+                                  ? mode === 'jp'
+                                    ? t.nameJp || t.nameEn
+                                    : t.nameEn
+                                  : '—'}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
                   </div>
                 </div>
 
-                {/* Strategy & Distance Breakdown */}
-                <div className="col-span-5 space-y-3.5 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+                {/* Right: Strategy & Distance Breakdown */}
+                <div className="col-span-5 flex flex-col justify-between bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 space-y-3.5">
                   
-                  {/* Style Distribution */}
+                  {/* Running Style Distribution */}
                   <div className="space-y-2">
-                    <span className="text-[11px] font-bold text-slate-300 block">
-                      Running Style Points
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {Object.entries(safeStrategy).map(([key, val]) => (
-                        <div key={key} className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
-                          <span className="text-slate-400 text-[10px] truncate">{STYLE_LABELS[key] || key}</span>
-                          <span className="font-mono font-black text-cyan-300 text-[11px] ml-1">{Math.round(val)}</span>
-                        </div>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-200">
+                        Running Style Share
+                      </span>
+                      <span className="text-[10px] font-mono text-cyan-400 font-bold">
+                        100% Total
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {styleKeys.map((key) => {
+                        const pct = computedStylePct[key] || 0;
+                        const label = dict.style[key]; // Dynamic JP/Global label
+                        const isDominant = pct >= 30;
+
+                        return (
+                          <div key={key} className="bg-slate-900/90 px-2.5 py-1.5 rounded-xl border border-slate-800/80 space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className={`text-[11px] font-medium ${isDominant ? 'text-cyan-300 font-bold' : 'text-slate-300'}`}>
+                                {label}
+                              </span>
+                              <span className="font-mono font-black text-xs text-white">
+                                {pct}%
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isDominant
+                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                                    : 'bg-slate-700'
+                                }`}
+                                style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Distance Specialty */}
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-bold text-slate-300 block">
-                      Distance Affinity Points
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {Object.entries(safeDistance).map(([key, val]) => (
-                        <div key={key} className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
-                          <span className="text-slate-400 text-[10px] truncate">{DISTANCE_LABELS[key] || key}</span>
-                          <span className="font-mono font-black text-rose-300 text-[11px] ml-1">{Math.round(val)}</span>
-                        </div>
-                      ))}
+                  {/* Distance Specialty Distribution */}
+                  <div className="space-y-2 pt-2 border-t border-slate-800/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-200">
+                        Distance Affinity Share
+                      </span>
+                      <span className="text-[10px] font-mono text-rose-400 font-bold">
+                        100% Total
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {distanceKeys.map((key) => {
+                        const pct = computedDistPct[key] || 0;
+                        const label = dict.distance[key]; // Dynamic JP/Global label
+                        const isDominant = pct >= 30;
+
+                        return (
+                          <div
+                            key={key}
+                            className="bg-slate-900/90 p-2 rounded-xl border border-slate-800/80 space-y-1"
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <span className={`text-[10px] truncate ${isDominant ? 'text-rose-300 font-bold' : 'text-slate-400'}`}>
+                                {label}
+                              </span>
+                              <span className="font-mono font-black text-[11px] text-white">
+                                {pct}%
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isDominant
+                                    ? 'bg-gradient-to-r from-rose-500 to-pink-500'
+                                    : 'bg-slate-700'
+                                }`}
+                                style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -249,11 +428,11 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
 
               </div>
 
-              {/* Card Footer */}
-              <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
+              {/* Card Footer (English) */}
+              <div className="pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3 text-pink-400" />
-                  <span>Generated via Umamusume Top 50 Oshi Analyzer</span>
+                  <span>Generated via Umamusume Top 50 Oshi Strategy Analyzer</span>
                 </div>
                 <span>Data by GameTora • Open Source GNU GPL-3.0</span>
               </div>

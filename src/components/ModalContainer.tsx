@@ -1,7 +1,8 @@
+// components/ModalContainer.tsx
 'use client';
 
 import React from 'react';
-import { Trainee } from '../types/trainee';
+import { Trainee, TerminologyMode } from '../types/trainee';
 import { OshiSlot, AnalysisResult } from '../utils/calculator';
 import { ExportCardModal } from './modals/ExportCardModal';
 import { TraineeModal } from './modals/TraineeModal';
@@ -14,6 +15,7 @@ interface ModalContainerProps {
   activeCount: number;
   activeTraineeRanks: Record<string, number>;
   analysis: AnalysisResult;
+  mode: TerminologyMode; // <-- Added mode prop
 
   isExportOpen: boolean;
   onCloseExport: () => void;
@@ -46,6 +48,7 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
   activeCount,
   activeTraineeRanks,
   analysis,
+  mode, // <-- Destructure mode
   isExportOpen,
   onCloseExport,
   activeSlotRank,
@@ -72,7 +75,10 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
         isOpen={isExportOpen}
         onClose={onCloseExport}
         slots={slots}
+        mode={mode} // <-- Pass mode here
         archetype={analysis?.archetype}
+        stylePct={analysis?.stylePct}
+        distPct={analysis?.distPct}
         strategyScores={analysis?.styleRaw}
         distanceScores={analysis?.distanceRaw}
       />
