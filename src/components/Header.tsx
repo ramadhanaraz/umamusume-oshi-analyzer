@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { AppLogo } from './AppLogo';
 import { TerminologyMode } from '../types/trainee';
 import {
   LayoutDashboard,
@@ -38,15 +39,15 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="border-b border-slate-800/80 bg-[#0b101d]/90 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3.5">
       <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
         {/* Brand & Subtitle */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-pink-500 flex items-center justify-center text-xl shadow-lg shadow-rose-500/20 shrink-0">
-            🏇
+        <div className="flex items-center gap-3.5">
+          <div className="translate-y-[1.5px] shrink-0">
+            <AppLogo />
           </div>
-          <div>
-            <h1 className="text-base sm:text-xl font-black tracking-tight bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent inline-block">
+          <div className="flex flex-col justify-center">
+            <h1 className="text-base sm:text-xl font-black tracking-tight leading-snug bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent">
               Umamusume Top 50 Oshi Strategy Analyzer
             </h1>
-            <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-400 font-medium leading-snug mt-0.5">
               Rank your favorite 50 trainees to determine your optimal running style and race affinity.
             </p>
           </div>

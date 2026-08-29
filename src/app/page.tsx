@@ -5,6 +5,7 @@ import { TRAINEES } from '../data/trainees';
 import { Trainee, TerminologyMode, WeightingMode, AptitudeFilterMode, TERMINOLOGY } from '../types/trainee';
 import { OshiSlot, calculateAnalysis, encodeRosterToUrl, decodeRosterFromUrl } from '../utils/calculator';
 import { Header, TabType } from '../components/Header';
+import { Footer } from '../components/Footer';
 import { HeroArchetype } from '../components/HeroArchetype';
 import { SettingsBar } from '../components/SettingsBar';
 import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
@@ -248,6 +249,9 @@ export default function Home() {
           <PresetsView onLoadPreset={handleLoadPreset} onShare={handleShare} onExportCSV={handleExportCSV} copied={copied} />
         )}
       </div>
+
+      {/* Global Footer */}
+      <Footer />
 
       {/* Trainee Selection Modal */}
       {activeSlotRank !== null && (
