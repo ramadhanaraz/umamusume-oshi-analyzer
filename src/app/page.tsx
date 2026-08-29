@@ -1,59 +1,56 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, Suspense } from 'react';
+import { Eye, ArrowLeft, Save } from 'lucide-react';
 import { TRAINEES } from '../data/trainees';
-import { Trainee, TerminologyMode, WeightingMode, AptitudeFilterMode, TERMINOLOGY } from '../types/trainee';
-import { OshiSlot, calculateAnalysis, encodeRosterToUrl, decodeRosterFromUrl } from '../utils/calculator';
+import { Trainee, TerminologyMode, WeightingMode, AptitudeFilterMode } from '../types/trainee';
+import { calculateAnalysis } from '../utils/calculator';
+import { useRosterHydration } from '../hooks/useRosterHydration';
 import { Header, TabType } from '../components/Header';
 import { Footer } from '../components/Footer';
-import { HeroArchetype } from '../components/HeroArchetype';
-import { SettingsBar } from '../components/SettingsBar';
-import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
-import { TopFiveOshis } from '../components/TopFiveOshis';
-import { RosterView } from '../components/views/RosterView';
-import { DatabaseView } from '../components/views/DatabaseView';
-import { ArchetypeView } from '../components/views/ArchetypeView';
-import { PresetsView } from '../components/views/PresetsView';
-import { TraineeModal } from '../components/TraineeModal';
-import { CardActionModal } from '../components/CardActionModal';
-import { ConfirmModal } from '../components/ConfirmModal';
+import { ViewContainer } from '../components/ViewContainer';
+import { ModalContainer } from '../components/ModalContainer';
 
-export default function Home() {
-  const [slots, setSlots] = useState<OshiSlot[]>(
-    Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: null }))
-  );
+const TOTAL_SLOTS = 50;
+
+function HomeContent() {
+  const {
+    slots,
+    setSlots,
+    isSharedPreview,
+    copied,
+    exitPreview,
+    confirmImportShared,
+    handleShare,
+  } = useRosterHydration();
+
+  // Navigation & Filter States
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [mode, setMode] = useState<TerminologyMode>('global');
   const [weightMode, setWeightMode] = useState<WeightingMode>('tiered');
   const [filterMode, setFilterMode] = useState<AptitudeFilterMode>('aOnly');
+
+  // Modal Open / Focus States
   const [activeSlotRank, setActiveSlotRank] = useState<number | null>(null);
   const [actionMenuRank, setActionMenuRank] = useState<number | null>(null);
   const [openedFromActionMenu, setOpenedFromActionMenu] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const compressed = new URLSearchParams(window.location.search).get('r');
-    if (compressed) {
-      const decoded = decodeRosterFromUrl(compressed, TRAINEES);
-      if (decoded.length > 0) {
-        setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: decoded[i] || null })));
-      }
-    }
-  }, []);
-
+  // Derived Roster & Analysis States
   const activeTrainees = slots.filter((s): s is { rank: number; trainee: Trainee } => s.trainee !== null);
   const activeCount = activeTrainees.length;
   const analysis = calculateAnalysis(slots, mode, weightMode, filterMode);
-  const labels = TERMINOLOGY[mode];
 
   const activeTraineeRanks = activeTrainees.reduce<Record<string, number>>((acc, curr) => {
     acc[curr.trainee.id] = curr.rank;
     return acc;
   }, {});
 
-  // Handles both new assignments and automatic rank-swapping for existing trainees
+  const activeMenuTrainee = actionMenuRank ? slots[actionMenuRank - 1]?.trainee : null;
+
+  // Handlers
   const handleSelectTrainee = (trainee: Trainee) => {
     if (!activeSlotRank) return;
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
@@ -61,12 +58,10 @@ export default function Home() {
 
     if (existingIndex !== -1) {
       if (activeSlotRank <= current.length) {
-        // Swap trainees between the two ranks
         const temp = current[activeSlotRank - 1];
         current[activeSlotRank - 1] = current[existingIndex];
         current[existingIndex] = temp;
       } else {
-        // Move trainee to the end of the list
         current.splice(existingIndex, 1);
         current.push(trainee);
       }
@@ -78,36 +73,26 @@ export default function Home() {
       }
     }
 
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
     setActiveSlotRank(null);
     setActionMenuRank(null);
     setOpenedFromActionMenu(false);
   };
 
   const handleAddFirstEmpty = (trainee: Trainee) => {
-    if (activeCount >= 50) return alert('Your Top 50 roster is full!');
+    if (activeCount >= TOTAL_SLOTS) return alert('Your Top 50 roster is full!');
     if (activeTraineeRanks[trainee.id] !== undefined) {
       return alert(`${trainee.nameEn} is already in your Top 50 at Rank #${activeTraineeRanks[trainee.id]}!`);
     }
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
     current.push(trainee);
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
   };
 
   const handleRemove = (rank: number) => {
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
     current.splice(rank - 1, 1);
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
-  };
-
-  const handleMove = (rank: number, direction: 'up' | 'down') => {
-    const target = direction === 'up' ? rank - 1 : rank + 1;
-    if (target < 1 || target > activeCount) return;
-    const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    const temp = current[rank - 1];
-    current[rank - 1] = current[target - 1];
-    current[target - 1] = temp;
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
   };
 
   const handleReorder = (sourceRank: number, targetRank: number) => {
@@ -115,34 +100,43 @@ export default function Home() {
     const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
     const [moved] = current.splice(sourceRank - 1, 1);
     current.splice(targetRank - 1, 0, moved);
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
   };
 
   const handleReorderList = (newTrainees: Trainee[]) => {
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: newTrainees[i] || null })));
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: newTrainees[i] || null })));
   };
 
-  const handleTriggerClear = () => {
-    if (activeCount > 0) {
-      setIsClearModalOpen(true);
-    }
-  };
-  
   const handleConfirmClear = () => {
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: null })));
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: null })));
+    setIsClearModalOpen(false);
   };
 
   const handleAutoFillRemaining = () => {
     const currentList = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    if (currentList.length >= 50) return;
+    if (currentList.length >= TOTAL_SLOTS) return;
 
     const chosenIds = new Set(currentList.map((t) => t.id));
     const available = TRAINEES.filter((t) => !chosenIds.has(t.id)).sort(() => 0.5 - Math.random());
-    const needed = 50 - currentList.length;
+    const needed = TOTAL_SLOTS - currentList.length;
     const toAdd = available.slice(0, needed);
     const fullList = [...currentList, ...toAdd];
 
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: fullList[i] || null })));
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: fullList[i] || null })));
+  };
+
+  const handleLoadPreset = (type: 'spica' | 'newEra' | 'new-era' | 'random') => {
+    let selected: Trainee[] = [];
+    if (type === 'newEra' || type === 'new-era') {
+      const ids = ['epiphaneia', 'fusaichi-pandora', 'rulership', 'curren-bouquetdor', 'gentildonna', 'red-desire', 'daring-heart', 'admire-groove', 'lucky-lilac', 'north-flight', 'victoire-pisa', 'loves-only-you', 'almond-eye', 'sounds-of-earth', 'kiseki', 'bubble-gum-fellow', 'stay-gold', 'nakayama-festa', 'dream-journey', 'buena-vista'];
+      selected = TRAINEES.filter((t) => ids.includes(t.id));
+    } else if (type === 'spica') {
+      const ids = ['special-week', 'silence-suzuka', 'tokai-teio', 'vodka', 'daiwa-scarlet', 'gold-ship', 'mejiro-mcqueen', 'symboli-rudolf', 'air-groove', 'narita-brian', 'rice-shower', 'grass-wonder', 'el-condor-pasa', 'taiki-shuttle', 'oguri-cap', 'twin-turbo', 'nice-nature', 'king-halo', 'winning-ticket', 'agnes-tachyon'];
+      selected = TRAINEES.filter((t) => ids.includes(t.id));
+    } else {
+      selected = [...TRAINEES].sort(() => 0.5 - Math.random()).slice(0, TOTAL_SLOTS);
+    }
+    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: selected[i] || null })));
   };
 
   const handleExportCSV = () => {
@@ -161,30 +155,37 @@ export default function Home() {
     link.click();
   };
 
-  const handleLoadPreset = (type: 'spica' | 'newEra' | 'random') => {
-    let selected: Trainee[] = [];
-    if (type === 'newEra') {
-      const ids = ['epiphaneia', 'fusaichi-pandora', 'rulership', 'curren-bouquetdor', 'gentildonna', 'red-desire', 'daring-heart', 'admire-groove', 'lucky-lilac', 'north-flight', 'victoire-pisa', 'loves-only-you', 'almond-eye', 'sounds-of-earth', 'kiseki', 'bubble-gum-fellow', 'stay-gold', 'nakayama-festa', 'dream-journey', 'buena-vista'];
-      selected = TRAINEES.filter((t) => ids.includes(t.id));
-    } else if (type === 'spica') {
-      const ids = ['special-week', 'silence-suzuka', 'tokai-teio', 'vodka', 'daiwa-scarlet', 'gold-ship', 'mejiro-mcqueen', 'symboli-rudolf', 'air-groove', 'narita-brian', 'rice-shower', 'grass-wonder', 'el-condor-pasa', 'taiki-shuttle', 'oguri-cap', 'twin-turbo', 'nice-nature', 'king-halo', 'winning-ticket', 'agnes-tachyon'];
-      selected = TRAINEES.filter((t) => ids.includes(t.id));
-    } else {
-      selected = [...TRAINEES].sort(() => 0.5 - Math.random()).slice(0, 50);
-    }
-    setSlots(Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, trainee: selected[i] || null })));
-  };
-
-  const handleShare = () => {
-    navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?r=${encodeRosterToUrl(slots)}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const activeMenuTrainee = actionMenuRank ? slots[actionMenuRank - 1]?.trainee : null;
-
   return (
     <main className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans">
+      {/* Shared Link Banner */}
+      {isSharedPreview && (
+        <div className="w-full bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-b border-amber-500/40 px-4 py-2.5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-fadeIn z-40 sticky top-0 backdrop-blur-md">
+          <div className="flex items-center gap-2.5 text-amber-300">
+            <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="font-medium">
+              You are viewing a <strong>shared roster from a link</strong>. Your personal Top 50 remains safely saved.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={exitPreview}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Restore My List</span>
+            </button>
+            <button
+              onClick={() => setIsImportConfirmOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Save as My List</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Global Header */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -192,118 +193,96 @@ export default function Home() {
         setMode={setMode}
         activeCount={activeCount}
         totalCount={TRAINEES.length}
-        onExportCSV={handleExportCSV}
+        onOpenExport={() => setIsExportOpen(true)}
       />
 
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6 animate-fadeIn">
-            <HeroArchetype archetype={analysis.archetype} activeCount={activeCount} onFillMore={() => setActiveTab('roster')} />
-            <SettingsBar weightMode={weightMode} setWeightMode={setWeightMode} filterMode={filterMode} setFilterMode={setFilterMode} />
-            <AnalyticsDashboard mode={mode} analysis={analysis} />
-            <TopFiveOshis
-              slots={slots}
-              mode={mode}
-              onSelectSlot={(r) => {
-                setOpenedFromActionMenu(false);
-                setActiveSlotRank(r);
-              }}
-              onOpenActionMenu={(r) => setActionMenuRank(r)}
-              onManageTop50={() => setActiveTab('roster')}
-            />
-          </div>
-        )}
-
-        {activeTab === 'roster' && (
-          <RosterView
-            activeTrainees={activeTrainees}
-            activeCount={activeCount}
-            mode={mode}
-            onOpenActionMenu={(r) => setActionMenuRank(r)}
-            onOpenModal={(r) => {
-              setOpenedFromActionMenu(false);
-              setActiveSlotRank(r);
-            }}
-            onRemove={handleRemove}
-            onReorderList={handleReorderList}
-            onLoadPreset={handleLoadPreset}
-            onAutoFillRemaining={handleAutoFillRemaining}
-            onClear={handleTriggerClear}
-            onGoToDatabase={() => setActiveTab('database')}
-          />
-        )}
-
-        {activeTab === 'database' && (
-          <DatabaseView
-            trainees={TRAINEES}
-            activeTraineeIds={activeTrainees.map((s) => s.trainee.id)}
-            onAddTrainee={handleAddFirstEmpty}
-          />
-        )}
-
-        {activeTab === 'archetype' && (
-          <ArchetypeView archetype={analysis.archetype} mode={mode} styleRaw={analysis.styleRaw} />
-        )}
-
-        {activeTab === 'presets' && (
-          <PresetsView onLoadPreset={handleLoadPreset} onShare={handleShare} onExportCSV={handleExportCSV} copied={copied} />
-        )}
-      </div>
+      {/* Active Tab Views */}
+      <ViewContainer
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        mode={mode}
+        weightMode={weightMode}
+        setWeightMode={setWeightMode}
+        filterMode={filterMode}
+        setFilterMode={setFilterMode}
+        analysis={analysis}
+        slots={slots}
+        activeTrainees={activeTrainees}
+        activeCount={activeCount}
+        trainees={TRAINEES}
+        onSelectSlot={(r) => {
+          setOpenedFromActionMenu(false);
+          setActiveSlotRank(r);
+        }}
+        onOpenActionMenu={(r) => setActionMenuRank(r)}
+        onOpenModal={(r) => {
+          setOpenedFromActionMenu(false);
+          setActiveSlotRank(r);
+        }}
+        onRemove={handleRemove}
+        onReorderList={handleReorderList}
+        onLoadPreset={handleLoadPreset}
+        onAutoFillRemaining={handleAutoFillRemaining}
+        onClear={() => activeCount > 0 && setIsClearModalOpen(true)}
+        onAddTrainee={handleAddFirstEmpty}
+        onOpenExportCard={() => setIsExportOpen(true)}
+        onShare={handleShare}
+        onExportCSV={handleExportCSV}
+        copied={copied}
+      />
 
       {/* Global Footer */}
       <Footer />
 
-      {/* Trainee Selection Modal */}
-      {activeSlotRank !== null && (
-        <TraineeModal
-          rank={activeSlotRank}
-          trainees={TRAINEES}
-          activeTraineeRanks={activeTraineeRanks}
-          onSelect={handleSelectTrainee}
-          onClose={() => {
-            setActiveSlotRank(null);
-            setOpenedFromActionMenu(false);
-          }}
-          onBack={
-            openedFromActionMenu
-              ? () => {
-                  setActionMenuRank(activeSlotRank);
-                  setActiveSlotRank(null);
-                  setOpenedFromActionMenu(false);
-                }
-              : undefined
-          }
-        />
-      )}
-
-      {/* Card Action Menu Modal */}
-      {actionMenuRank !== null && activeMenuTrainee && (
-        <CardActionModal
-          rank={actionMenuRank}
-          trainee={activeMenuTrainee}
-          totalCount={activeCount}
-          onClose={() => setActionMenuRank(null)}
-          onChangeTrainee={(r) => {
-            setActionMenuRank(null);
-            setActiveSlotRank(r);
-            setOpenedFromActionMenu(true);
-          }}
-          onMoveToRank={handleReorder}
-          onRemove={handleRemove}
-        />
-      )}
-
-      {/* Confirmation Dialog (Renders on Top) */}
-      <ConfirmModal
-        isOpen={isClearModalOpen}
-        title="Clear Top 50 Roster?"
-        description="Are you sure you want to remove all trainees from your Top 50 list? This action will reset all assigned slots and cannot be undone."
-        confirmLabel="Clear All Slots"
-        cancelLabel="Cancel"
-        variant="danger"
-        onConfirm={handleConfirmClear}
-        onClose={() => setIsClearModalOpen(false)}
+      {/* Modals Suite */}
+      <ModalContainer
+        trainees={TRAINEES}
+        slots={slots}
+        activeCount={activeCount}
+        activeTraineeRanks={activeTraineeRanks}
+        analysis={analysis}
+        isExportOpen={isExportOpen}
+        onCloseExport={() => setIsExportOpen(false)}
+        activeSlotRank={activeSlotRank}
+        openedFromActionMenu={openedFromActionMenu}
+        onSelectTrainee={handleSelectTrainee}
+        onCloseTraineeModal={() => {
+          setActiveSlotRank(null);
+          setOpenedFromActionMenu(false);
+        }}
+        onBackToActionMenu={() => {
+          setActionMenuRank(activeSlotRank);
+          setActiveSlotRank(null);
+          setOpenedFromActionMenu(false);
+        }}
+        actionMenuRank={actionMenuRank}
+        activeMenuTrainee={activeMenuTrainee}
+        onCloseActionMenu={() => setActionMenuRank(null)}
+        onChangeTraineeFromAction={(r) => {
+          setActionMenuRank(null);
+          setActiveSlotRank(r);
+          setOpenedFromActionMenu(true);
+        }}
+        onMoveToRank={handleReorder}
+        onRemoveTrainee={handleRemove}
+        isClearModalOpen={isClearModalOpen}
+        onCloseClearModal={() => setIsClearModalOpen(false)}
+        onConfirmClear={handleConfirmClear}
+        isImportConfirmOpen={isImportConfirmOpen}
+        onCloseImportConfirm={() => setIsImportConfirmOpen(false)}
+        onConfirmImportShared={() => {
+          confirmImportShared();
+          setIsImportConfirmOpen(false);
+        }}
       />
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#070b14]" />}>
+      <HomeContent />
+    </Suspense>
   );
 }

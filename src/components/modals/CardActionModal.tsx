@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Trainee } from '../types/trainee';
+import { Trainee } from '../../types/trainee';
 import { X, RefreshCw, ArrowRightLeft, Trash2 } from 'lucide-react';
 
 interface CardActionModalProps {

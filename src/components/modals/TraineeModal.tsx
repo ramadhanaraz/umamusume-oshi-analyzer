@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Trainee } from '../types/trainee';
+import { Trainee } from '../../types/trainee';
 import { Search, X, ArrowLeft, ArrowLeftRight, Check } from 'lucide-react';
 
 interface TraineeModalProps {
