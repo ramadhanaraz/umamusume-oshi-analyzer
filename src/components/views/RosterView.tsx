@@ -24,6 +24,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import {
+  Trophy,
   Sparkles,
   Trash2,
   Search,
@@ -40,6 +41,7 @@ interface RosterViewProps {
   activeTrainees: { rank: number; trainee: Trainee }[];
   activeCount: number;
   mode: TerminologyMode;
+  isReadOnly?: boolean;
   onOpenActionMenu: (rank: number) => void;
   onOpenModal: (rank: number) => void;
   onRemove: (rank: number) => void;
@@ -50,7 +52,17 @@ interface RosterViewProps {
   onGoToDatabase: () => void;
 }
 
-type AptitudeFilterTag = 'TURF' | 'DIRT' | 'FRONT' | 'PACE' | 'LATE' | 'END' | 'SHORT' | 'MILE' | 'MEDIUM' | 'LONG';
+export type AptitudeFilterTag =
+  | 'turf'
+  | 'dirt'
+  | 'front'
+  | 'pace'
+  | 'late'
+  | 'end'
+  | 'short'
+  | 'mile'
+  | 'medium'
+  | 'long';
 
 interface TierDefinition {
   id: string;
@@ -120,6 +132,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
   activeTrainees,
   activeCount,
   mode,
+  isReadOnly = false,
   onOpenActionMenu,
   onOpenModal,
   onRemove,
@@ -134,65 +147,81 @@ export const RosterView: React.FC<RosterViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedFilters, setSelectedFilters] = useState<AptitudeFilterTag[]>([]);
 
-  const [orderedTrainees, setOrderedTrainees] = useState<Trainee[]>([]);
+  const [orderedTrainees, setOrderedTrainees] = useState<Trainee[]>(() =>
+    activeTrainees.map((s) => s.trainee)
+  );
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
-  const isFiltering = searchQuery !== '' || selectedFilters.length > 0;
-  const dict = TERMINOLOGY[mode];
+  const isFiltering = searchQuery.trim() !== '' || selectedFilters.length > 0;
+  const dict = TERMINOLOGY[mode] || TERMINOLOGY.global;
 
   const fullTraineeList = useMemo(() => activeTrainees.map((s) => s.trainee), [activeTrainees]);
 
-  const matchesTag = useCallback((trainee: Trainee, tag: AptitudeFilterTag): boolean => {
+  const isAptitudeViable = (tag: AptitudeFilterTag, trainee: Trainee): boolean => {
     switch (tag) {
-      case 'TURF':
+      case 'turf':
         return ['S', 'A'].includes(trainee.surface.turf);
-      case 'DIRT':
+      case 'dirt':
         return ['S', 'A', 'B'].includes(trainee.surface.dirt);
-      case 'FRONT':
+      case 'front':
         return ['S', 'A'].includes(trainee.style.front);
-      case 'PACE':
+      case 'pace':
         return ['S', 'A'].includes(trainee.style.pace);
-      case 'LATE':
+      case 'late':
         return ['S', 'A'].includes(trainee.style.late);
-      case 'END':
+      case 'end':
         return ['S', 'A'].includes(trainee.style.end);
-      case 'SHORT':
+      case 'short':
         return ['S', 'A'].includes(trainee.distance.short);
-      case 'MILE':
+      case 'mile':
         return ['S', 'A'].includes(trainee.distance.mile);
-      case 'MEDIUM':
+      case 'medium':
         return ['S', 'A'].includes(trainee.distance.medium);
-      case 'LONG':
+      case 'long':
         return ['S', 'A'].includes(trainee.distance.long);
       default:
         return true;
     }
-  }, []);
+  };
 
-  // Filtered source trainees
   const baseFilteredTrainees = useMemo(() => {
     return activeTrainees.filter(({ trainee }) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        trainee.nameEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        trainee.nameJp.includes(searchQuery);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchEn = trainee.nameEn?.toLowerCase().includes(q);
+        const matchJp = trainee.nameJp?.includes(q);
+        if (!matchEn && !matchJp) return false;
+      }
 
-      if (!matchesSearch) return false;
+      if (selectedFilters.length === 0) return true;
 
-      if (selectedFilters.length > 0) {
-        return selectedFilters.every((tag) => matchesTag(trainee, tag));
+      const surfaceFilters = selectedFilters.filter((f) => ['turf', 'dirt'].includes(f));
+      const styleFilters = selectedFilters.filter((f) => ['front', 'pace', 'late', 'end'].includes(f));
+      const distanceFilters = selectedFilters.filter((f) => ['short', 'mile', 'medium', 'long'].includes(f));
+
+      if (surfaceFilters.length > 0) {
+        const matchSurface = surfaceFilters.some((tag) => isAptitudeViable(tag, trainee));
+        if (!matchSurface) return false;
+      }
+
+      if (styleFilters.length > 0) {
+        const matchStyle = styleFilters.some((tag) => isAptitudeViable(tag, trainee));
+        if (!matchStyle) return false;
+      }
+
+      if (distanceFilters.length > 0) {
+        const matchDistance = distanceFilters.some((tag) => isAptitudeViable(tag, trainee));
+        if (!matchDistance) return false;
       }
 
       return true;
     });
-  }, [activeTrainees, searchQuery, selectedFilters, matchesTag]);
+  }, [activeTrainees, searchQuery, selectedFilters]);
 
-  // Master slot positions for filtered sub-array projection
   const filteredMasterIndices = useMemo(() => {
     return baseFilteredTrainees.map(({ rank }) => rank - 1);
   }, [baseFilteredTrainees]);
 
-  // Sync state only when not dragging
   useEffect(() => {
     if (!activeDragId) {
       setOrderedTrainees(baseFilteredTrainees.map((item) => item.trainee));
@@ -220,14 +249,16 @@ export const RosterView: React.FC<RosterViewProps> = ({
 
   const handleClearFilters = () => {
     setSelectedFilters([]);
+    setSearchQuery('');
   };
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (isReadOnly) return;
     setActiveDragId(event.active.id as string);
   };
 
-  // Immediate in-memory reordering during drag
   const handleDragOver = (event: DragOverEvent) => {
+    if (isReadOnly) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -243,6 +274,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (isReadOnly) return;
     const { active, over } = event;
     setActiveDragId(null);
 
@@ -273,17 +305,51 @@ export const RosterView: React.FC<RosterViewProps> = ({
     setOrderedTrainees(baseFilteredTrainees.map((item) => item.trainee));
   };
 
-  // Map trainees to their live calculated rank positions
+  const handleMoveToRank = useCallback(
+    (sourceRank: number, targetRank: number) => {
+      if (
+        isReadOnly ||
+        targetRank < 1 ||
+        targetRank > activeCount ||
+        sourceRank === targetRank ||
+        sourceRank < 1 ||
+        sourceRank > activeCount
+      ) {
+        return;
+      }
+
+      const sourceIndex = sourceRank - 1;
+      const targetIndex = targetRank - 1;
+
+      if (!isFiltering) {
+        const newOrder = arrayMove(orderedTrainees, sourceIndex, targetIndex);
+        setOrderedTrainees(newOrder);
+        onReorderList(newOrder);
+      } else {
+        const masterSourceIdx = filteredMasterIndices[sourceIndex];
+        const masterTargetIdx = filteredMasterIndices[targetIndex] ?? (targetRank - 1);
+        const updatedMaster = arrayMove(fullTraineeList, masterSourceIdx, masterTargetIdx);
+        onReorderList(updatedMaster);
+      }
+    },
+    [activeCount, isFiltering, isReadOnly, orderedTrainees, onReorderList, filteredMasterIndices, fullTraineeList]
+  );
+
   const renderedItems = useMemo(() => {
-    return orderedTrainees.map((trainee, index) => {
+    const source = orderedTrainees.length > 0
+      ? orderedTrainees
+      : baseFilteredTrainees.map((item) => item.trainee);
+
+    return source.map((trainee, index) => {
       const rank = isFiltering
-        ? filteredMasterIndices[index] + 1
+        ? filteredMasterIndices[index] !== undefined
+          ? filteredMasterIndices[index] + 1
+          : index + 1
         : index + 1;
       return { rank, trainee };
     });
-  }, [orderedTrainees, isFiltering, filteredMasterIndices]);
+  }, [orderedTrainees, baseFilteredTrainees, isFiltering, filteredMasterIndices]);
 
-  // Live dynamic rank for the floating DragOverlay
   const activeOverlayData = useMemo(() => {
     if (!activeDragId) return null;
     const currentIndex = orderedTrainees.findIndex((t) => t.id === activeDragId);
@@ -297,33 +363,36 @@ export const RosterView: React.FC<RosterViewProps> = ({
     return { rank: liveRank, trainee };
   }, [activeDragId, orderedTrainees, isFiltering, filteredMasterIndices]);
 
-  const filterChips: { id: AptitudeFilterTag; label: string }[] = [
-    { id: 'TURF', label: dict.surface.turf },
-    { id: 'DIRT', label: dict.surface.dirt },
-    { id: 'FRONT', label: dict.style.front },
-    { id: 'PACE', label: dict.style.pace },
-    { id: 'LATE', label: dict.style.late },
-    { id: 'END', label: dict.style.end },
-    { id: 'SHORT', label: dict.distance.short },
-    { id: 'MILE', label: dict.distance.mile },
-    { id: 'MEDIUM', label: dict.distance.medium },
-    { id: 'LONG', label: dict.distance.long },
-  ];
-
   return (
-    <div className="space-y-4 w-full animate-fadeIn">
+    <div className="space-y-4 w-full select-none">
       {/* 1. Header Toolbar */}
       <div className="flex flex-wrap justify-between items-center gap-3 bg-[#0e1424] p-4 sm:p-5 rounded-3xl border border-slate-800/90 shadow-xl">
-        <div>
-          <h2 className="text-base sm:text-lg font-black text-white">Top 50 Oshi Ranking List</h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {isFiltering
-              ? 'Sorting filtered items within their current ranks'
-              : 'Drag handles to smoothly reorder across all ranks & tiers'}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-400 shadow-inner shrink-0">
+            <Trophy className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
+              Top 50 Oshi Ranking List
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isReadOnly
+                ? 'Viewing shared roster in read-only mode • Save to personalize'
+                : isFiltering
+                ? 'Sorting filtered items within their current ranks'
+                : 'Drag any card or click rank numbers to jump positions'}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {isReadOnly && (
+            <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold text-xs flex items-center gap-1.5 shadow-sm">
+              <span>🔒</span>
+              <span>Read Only</span>
+            </div>
+          )}
+
           {/* View Mode Toggle */}
           <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
             <button
@@ -374,110 +443,204 @@ export const RosterView: React.FC<RosterViewProps> = ({
             </button>
           </div>
 
-          {/* Fill Rest */}
-          {activeCount > 0 && activeCount < 50 && (
-            <button
-              onClick={onAutoFillRemaining}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all"
-            >
-              <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Fill Rest ({50 - activeCount})</span>
-            </button>
+          {/* Mutation Buttons (Hidden in Read-Only Mode) */}
+          {!isReadOnly && (
+            <>
+              {activeCount > 0 && activeCount < 50 && (
+                <button
+                  onClick={onAutoFillRemaining}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all"
+                >
+                  <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Fill Rest ({50 - activeCount})</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => onLoadPreset('random')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition-all"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden md:inline">Random 50</span>
+              </button>
+
+              <button
+                onClick={onClear}
+                disabled={activeCount === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-bold transition-all disabled:opacity-30"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
+            </>
           )}
-
-          <button
-            onClick={() => onLoadPreset('random')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition-all"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden md:inline">Random 50</span>
-          </button>
-
-          <button
-            onClick={onClear}
-            disabled={activeCount === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-bold transition-all disabled:opacity-30"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Clear</span>
-          </button>
         </div>
       </div>
 
-      {/* 2. Search & Filter Bar */}
+      {/* 2. Seamless Sticky Filter Bar */}
       {activeCount > 0 && (
-        <div className="p-3.5 rounded-2xl bg-[#0e1424] border border-slate-800/80 shadow-md space-y-3">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Search trainees within your Top 50..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-2.5 text-slate-500 hover:text-white"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+        <div className={`sticky z-30 py-3 pb-5 bg-[#070b16] shadow-[0_12px_24px_-10px_rgba(7,11,22,0.95)] transition-all ${
+          isReadOnly
+            ? 'top-[160px] sm:top-[168px]'
+            : 'top-[112px] sm:top-[120px]'
+        }`}
+      >
+          <div className="p-3.5 sm:p-4 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl space-y-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search trainees within your Top 50..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search query"
+                    className="absolute right-2.5 top-2.5 text-slate-500 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="text-[11px] font-mono font-semibold px-2 shrink-0 text-right text-slate-400">
+                Showing{' '}
+                <strong className={isFiltering ? 'text-pink-400 font-bold' : 'text-white'}>
+                  {renderedItems.length}
+                </strong>{' '}
+                of {activeCount}
+              </div>
             </div>
 
-            {isFiltering && (
-              <div className="text-[11px] text-slate-400 font-semibold px-2 shrink-0">
-                Showing <strong className="text-pink-400">{renderedItems.length}</strong> of {activeCount}
+            {/* Filter Clusters */}
+            <div className="flex items-center gap-2.5 overflow-x-auto custom-scrollbar pb-1 pt-0.5 text-[11px]">
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
+                  selectedFilters.length === 0
+                    ? 'bg-pink-600 text-white shadow-md shadow-pink-600/25'
+                    : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                }`}
+              >
+                All
+              </button>
+
+              <div className="h-5 w-px bg-slate-800 shrink-0" />
+
+              {/* Surface */}
+              <div className="flex items-center gap-1.5 shrink-0 bg-slate-950/50 p-1 rounded-2xl border border-slate-800/60">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2">
+                  Surface:
+                </span>
+                {(
+                  [
+                    { id: 'turf', label: 'Turf', emoji: '🌿' },
+                    { id: 'dirt', label: 'Dirt', emoji: '🏜️' },
+                  ] as const
+                ).map((chip) => {
+                  const isSelected = selectedFilters.includes(chip.id);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => handleToggleFilter(chip.id)}
+                      className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="text-[10px]">{chip.emoji}</span>
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-2 pt-0.5">
-            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider shrink-0 mr-1">
-              Filter:
-            </span>
+              <div className="h-5 w-px bg-slate-800 shrink-0" />
 
-            <button
-              onClick={handleClearFilters}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all shrink-0 ${
-                selectedFilters.length === 0
-                  ? 'bg-pink-600 text-white shadow-sm'
-                  : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
-              }`}
-            >
-              All
-            </button>
+              {/* Style */}
+              <div className="flex items-center gap-1.5 shrink-0 bg-slate-950/50 p-1 rounded-2xl border border-slate-800/60">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2">
+                  Style:
+                </span>
+                {(
+                  [
+                    { id: 'front', label: mode === 'jp' ? '逃げ (FR)' : 'Front Runner' },
+                    { id: 'pace', label: mode === 'jp' ? '先行 (PC)' : 'Pace Chaser' },
+                    { id: 'late', label: mode === 'jp' ? '差し (LS)' : 'Late Surger' },
+                    { id: 'end', label: mode === 'jp' ? '追込 (EC)' : 'End Closer' },
+                  ] as const
+                ).map((chip) => {
+                  const isSelected = selectedFilters.includes(chip.id);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => handleToggleFilter(chip.id)}
+                      className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all ${
+                        isSelected
+                          ? 'bg-cyan-600 text-white shadow-sm'
+                          : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-            {filterChips.map((chip) => {
-              const isSelected = selectedFilters.includes(chip.id);
-              return (
-                <button
-                  key={chip.id}
-                  onClick={() => handleToggleFilter(chip.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all shrink-0 ${
-                    isSelected
-                      ? 'bg-pink-600 text-white shadow-sm'
-                      : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
+              <div className="h-5 w-px bg-slate-800 shrink-0" />
+
+              {/* Distance */}
+              <div className="flex items-center gap-1.5 shrink-0 bg-slate-950/50 p-1 rounded-2xl border border-slate-800/60">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2">
+                  Distance:
+                </span>
+                {(
+                  [
+                    { id: 'short', label: mode === 'jp' ? '短距離 (SP)' : 'Sprint' },
+                    { id: 'mile', label: mode === 'jp' ? 'マイル (MI)' : 'Mile' },
+                    { id: 'medium', label: mode === 'jp' ? '中距離 (MD)' : 'Medium' },
+                    { id: 'long', label: mode === 'jp' ? '長距離 (LG)' : 'Long' },
+                  ] as const
+                ).map((chip) => {
+                  const isSelected = selectedFilters.includes(chip.id);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => handleToggleFilter(chip.id)}
+                      className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all ${
+                        isSelected
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* 3. Empty State or DND Lists */}
+      {/* 3. Trainee Cards List */}
       {activeCount === 0 ? (
         <div className="p-12 sm:p-16 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl flex flex-col items-center justify-center text-center space-y-4">
           <div className="text-5xl select-none">🏇</div>
           <div className="space-y-1 max-w-md">
             <h3 className="text-lg font-black text-white">Your Top 50 List is Empty!</h3>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Go to the <strong className="text-slate-200">Uma Database</strong> tab or click quick fill to populate your favorite characters and start analyzing!
+              Go to the <strong className="text-slate-200">All Playable Roster</strong> tab or click quick fill to populate your favorite characters!
             </p>
           </div>
           <button
@@ -485,12 +648,12 @@ export const RosterView: React.FC<RosterViewProps> = ({
             className="mt-2 flex items-center gap-2 px-6 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shadow-lg shadow-pink-600/30 transition-all active:scale-95"
           >
             <Search className="w-4 h-4" />
-            <span>Browse Database</span>
+            <span>Browse All Playable Roster</span>
           </button>
         </div>
       ) : (
         <DndContext
-          sensors={sensors}
+          sensors={isReadOnly ? [] : sensors}
           collisionDetection={collisionDetectionStrategy}
           measuring={{
             droppable: {
@@ -556,12 +719,15 @@ export const RosterView: React.FC<RosterViewProps> = ({
                             mode={mode}
                             totalCount={activeCount}
                             isCompact={isCompact}
-                            onOpenActionMenu={onOpenActionMenu}
-                            onRemove={onRemove}
+                            isReadOnly={isReadOnly}
+                            onOpenActionMenu={isReadOnly ? undefined : onOpenActionMenu}
+                            onRemove={isReadOnly ? undefined : onRemove}
+                            onMoveToRank={isReadOnly ? undefined : handleMoveToRank}
                           />
                         ))}
 
-                        {isCurrentFillingTier && activeCount < 50 && !isFiltering && (
+                        {/* Completely hidden in Read-Only mode */}
+                        {!isReadOnly && isCurrentFillingTier && activeCount < 50 && !isFiltering && (
                           <button
                             onClick={() => onOpenModal(activeCount + 1)}
                             className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
@@ -585,12 +751,15 @@ export const RosterView: React.FC<RosterViewProps> = ({
                     mode={mode}
                     totalCount={activeCount}
                     isCompact={isCompact}
-                    onOpenActionMenu={onOpenActionMenu}
-                    onRemove={onRemove}
+                    isReadOnly={isReadOnly}
+                    onOpenActionMenu={isReadOnly ? undefined : onOpenActionMenu}
+                    onRemove={isReadOnly ? undefined : onRemove}
+                    onMoveToRank={isReadOnly ? undefined : handleMoveToRank}
                   />
                 ))}
 
-                {activeCount < 50 && !isFiltering && (
+                {/* Completely hidden in Read-Only mode */}
+                {!isReadOnly && activeCount < 50 && !isFiltering && (
                   <button
                     onClick={() => onOpenModal(activeCount + 1)}
                     className="w-full mt-2.5 flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-[#0e1424]/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
@@ -603,29 +772,34 @@ export const RosterView: React.FC<RosterViewProps> = ({
             )}
           </SortableContext>
 
-          {/* Floating Drag Overlay with Live Dynamic Rank */}
-          <DragOverlay
-            dropAnimation={{
-              sideEffects: defaultDropAnimationSideEffects({
-                styles: {
-                  active: {
-                    opacity: '0.3',
+          {/* Floating Drag Overlay */}
+          {!isReadOnly && (
+            <DragOverlay
+              dropAnimation={{
+                sideEffects: defaultDropAnimationSideEffects({
+                  styles: {
+                    active: {
+                      opacity: '0.3',
+                    },
                   },
-                },
-              }),
-            }}
-          >
-            {activeOverlayData ? (
-              <OshiCard
-                rank={activeOverlayData.rank}
-                trainee={activeOverlayData.trainee}
-                mode={mode}
-                totalCount={activeCount}
-                isCompact={isCompact}
-                isOverlay
-              />
-            ) : null}
-          </DragOverlay>
+                }),
+              }}
+            >
+              {activeOverlayData ? (
+                <OshiCard
+                  rank={activeOverlayData.rank}
+                  trainee={activeOverlayData.trainee}
+                  mode={mode}
+                  totalCount={activeCount}
+                  isCompact={isCompact}
+                  isOverlay
+                  onOpenActionMenu={onOpenActionMenu}
+                  onRemove={onRemove}
+                  onMoveToRank={handleMoveToRank}
+                />
+              ) : null}
+            </DragOverlay>
+          )}
         </DndContext>
       )}
     </div>

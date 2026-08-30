@@ -46,6 +46,7 @@ interface ViewContainerProps {
   onShare: () => void;
   onExportCSV: () => void;
   copied: boolean;
+  isSharedPreview?: boolean;
 }
 
 export const ViewContainer: React.FC<ViewContainerProps> = ({
@@ -74,6 +75,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
   onShare,
   onExportCSV,
   copied,
+  isSharedPreview = false,
 }) => {
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
@@ -83,6 +85,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
           <HeroArchetype
             archetype={analysis.archetype}
             activeCount={activeCount}
+            isReadOnly={isSharedPreview}
             onFillMore={() => setActiveTab('roster')}
           />
           <SettingsBar
@@ -95,6 +98,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
           <TopFiveOshis
             slots={slots}
             mode={mode}
+            isReadOnly={isSharedPreview}
             onSelectSlot={onSelectSlot}
             onOpenActionMenu={onOpenActionMenu}
             onManageTop50={() => setActiveTab('roster')}
@@ -108,6 +112,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
           activeTrainees={activeTrainees}
           activeCount={activeCount}
           mode={mode}
+          isReadOnly={isSharedPreview}
           onOpenActionMenu={onOpenActionMenu}
           onOpenModal={onOpenModal}
           onRemove={onRemove}
@@ -124,7 +129,15 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
         <DatabaseView
           trainees={trainees}
           activeTraineeIds={activeTrainees.map((s) => s.trainee.id)}
+          activeTraineeRanks={activeTrainees.reduce<Record<string, number>>((acc, curr) => {
+            acc[curr.trainee.id] = curr.rank;
+            return acc;
+          }, {})}
           onAddTrainee={onAddTrainee}
+          onRemoveTrainee={onRemove}
+          mode={mode}
+          isReadOnly={isSharedPreview}
+          maxSlots={50}
         />
       )}
 

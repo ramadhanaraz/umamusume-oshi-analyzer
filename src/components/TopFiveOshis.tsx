@@ -1,4 +1,3 @@
-// components/TopFiveOshis.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -13,6 +12,7 @@ interface TopFiveOshisProps {
   onSelectSlot: (rank: number) => void;
   onOpenActionMenu: (rank: number) => void;
   onManageTop50: () => void;
+  isReadOnly?: boolean;
 }
 
 export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
@@ -21,6 +21,7 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
   onSelectSlot,
   onOpenActionMenu,
   onManageTop50,
+  isReadOnly = false,
 }) => {
   const top5 = slots.slice(0, 5);
   const [activeOverlay, setActiveOverlay] = useState<Record<number, boolean>>({});
@@ -52,12 +53,11 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
   };
 
   return (
-    <div className="bg-[#0b101e]/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col space-y-5 animate-fadeIn">
-      
+    <div className="bg-[#0b101e]/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col space-y-5 animate-fadeIn select-none">
       {/* Unified Section Header */}
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
             <Crown className="w-5 h-5" />
           </div>
           <div>
@@ -65,19 +65,22 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
               I WAS BORN FOR DEM OSHIS
             </h3>
             <p className="text-[11px] text-slate-400 font-medium">
-              Top 5 Crowned Oshis • Rank #1–#5 (Tier 1 Priority)'
+              Top 5 Crowned Oshis • Rank #1–#5 (Tier 1 Priority)
             </p>
           </div>
         </div>
 
-        {/* Right Manage Button */}
-        <button
-          onClick={onManageTop50}
-          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/70 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm"
-        >
-          <span>{mode === 'jp' ? 'リスト管理' : 'Manage Top 50'}</span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        </button>
+        {/* Right Manage Button (Hidden when Read-Only) */}
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={onManageTop50}
+            className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/70 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm"
+          >
+            <span>Manage Top 50</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+        )}
       </div>
 
       {/* Top 5 Showcase Grid */}
@@ -91,14 +94,14 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
               key={slot.rank}
               onClick={(e) => {
                 if (!t) {
-                  onSelectSlot(slot.rank);
+                  if (!isReadOnly) onSelectSlot(slot.rank);
                 } else {
                   toggleOverlay(slot.rank, e);
                 }
               }}
-              className={`group relative h-64 sm:h-72 rounded-2xl overflow-hidden bg-[#0d1426] cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] active:scale-98 ${getCardBorder(
-                slot.rank
-              )}`}
+              className={`group relative h-64 sm:h-72 rounded-2xl overflow-hidden bg-[#0d1426] select-none transition-all duration-300 ${
+                !t && isReadOnly ? 'cursor-default' : 'cursor-pointer hover:scale-[1.02] active:scale-98'
+              } ${getCardBorder(slot.rank)}`}
             >
               {t?.image ? (
                 <>
@@ -120,14 +123,18 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                 </>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/80 text-slate-500 group-hover:text-slate-300 transition-colors p-3 text-center">
-                  <div className="w-11 h-11 rounded-full border border-dashed border-slate-700 flex items-center justify-center mb-2 group-hover:border-slate-500">
-                    <Plus className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <span className="text-xs font-bold">Assign #{slot.rank}</span>
+                  {!isReadOnly && (
+                    <div className="w-11 h-11 rounded-full border border-dashed border-slate-700 flex items-center justify-center mb-2 group-hover:border-slate-500">
+                      <Plus className="w-5 h-5 text-slate-400" />
+                    </div>
+                  )}
+                  <span className="text-xs font-bold">
+                    {isReadOnly ? `Unassigned #${slot.rank}` : `Assign #${slot.rank}`}
+                  </span>
                 </div>
               )}
 
-              {/* Enlarged Rank Badge (1, 2, 3 scaled up; 4 & 5 styled in slate outline) */}
+              {/* Enlarged Rank Badge */}
               <div
                 className={`absolute top-2.5 left-2.5 h-7 min-w-[28px] px-2.5 py-0.5 rounded-lg flex items-center justify-center gap-1 text-xs sm:text-sm font-black tracking-tight z-20 transition-transform ${getRankPillStyle(
                   slot.rank
@@ -136,8 +143,8 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                 <span>{slot.rank === 1 ? '★ 1' : slot.rank}</span>
               </div>
 
-              {/* Action Menu Trigger Button */}
-              {t && (
+              {/* Action Menu Trigger Button (Hidden in Read-Only Mode) */}
+              {!isReadOnly && t && (
                 <button
                   type="button"
                   aria-label="Card Actions"
@@ -151,7 +158,7 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                 </button>
               )}
 
-              {/* 1. Top Overlay: Track Surface in High-Contrast Frosted Pills */}
+              {/* Top Overlay: Track Surface Pills */}
               {t && (
                 <div
                   className={`absolute inset-x-0 top-0 pt-11 pb-3 px-2 bg-gradient-to-b from-slate-950/95 via-slate-950/70 to-transparent z-10 transition-all duration-300 ${
@@ -161,7 +168,6 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    {/* Turf Capsule */}
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-800/80 shadow-md">
                       <span className="text-slate-300 text-[9px] font-bold tracking-tight">Turf</span>
                       <span
@@ -173,7 +179,6 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                       </span>
                     </div>
 
-                    {/* Dirt Capsule */}
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-800/80 shadow-md">
                       <span className="text-slate-300 text-[9px] font-bold tracking-tight">Dirt</span>
                       <span
@@ -188,7 +193,7 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                 </div>
               )}
 
-              {/* 2. Default Bottom Name Label (Fades when overlay is active) */}
+              {/* Default Bottom Name Label */}
               {t && (
                 <div
                   className={`absolute inset-x-0 bottom-0 pt-14 pb-2.5 px-3 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col transition-all duration-300 ${
@@ -204,7 +209,7 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                 </div>
               )}
 
-              {/* 3. Bottom Slide-Up Aptitude Matrix Overlay with Frosted Plate */}
+              {/* Bottom Slide-Up Aptitude Matrix Overlay */}
               {t && (
                 <div
                   className={`absolute inset-x-0 bottom-0 p-2.5 pt-8 bg-gradient-to-t from-slate-950 via-slate-950/95 via-slate-950/70 to-transparent z-10 flex flex-col space-y-1.5 transition-all duration-300 ${
@@ -213,85 +218,41 @@ export const TopFiveOshis: React.FC<TopFiveOshisProps> = ({
                       : 'translate-y-full opacity-0 pointer-events-none group-hover:translate-y-0 group-hover:opacity-100'
                   }`}
                 >
-                  {/* Trainee Title */}
                   <div className="px-0.5">
                     <h4 className="text-xs font-black text-white truncate tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
                       {mode === 'jp' ? t.nameJp : t.nameEn}
                     </h4>
                   </div>
 
-                  {/* 2x4 Aptitude Matrix Grid Plate */}
                   <div className="space-y-1 w-full bg-slate-950/75 backdrop-blur-md p-1 rounded-xl border border-slate-800/80 shadow-xl">
-                    {/* Row 1: Running Style (FR, PC, LS, EC) */}
+                    {/* Row 1: Running Style */}
                     <div className="grid grid-cols-4 gap-1 text-center font-mono">
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.style?.front
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.front}:</span>
-                        <strong className="font-black">{t.style?.front || 'G'}</strong>
-                      </div>
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.style?.pace
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.pace}:</span>
-                        <strong className="font-black">{t.style?.pace || 'G'}</strong>
-                      </div>
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.style?.late
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.late}:</span>
-                        <strong className="font-black">{t.style?.late || 'G'}</strong>
-                      </div>
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.style?.end
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.end}:</span>
-                        <strong className="font-black">{t.style?.end || 'G'}</strong>
-                      </div>
+                      {(['front', 'pace', 'late', 'end'] as const).map((key) => (
+                        <div
+                          key={key}
+                          className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                            t.style?.[key]
+                          )}`}
+                        >
+                          <span className="opacity-70 text-[8px] font-medium">{labels[key]}:</span>
+                          <strong className="font-black">{t.style?.[key] || 'G'}</strong>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Row 2: Distance Range (SP, MI, MD, LG) */}
+                    {/* Row 2: Distance Range */}
                     <div className="grid grid-cols-4 gap-1 text-center font-mono">
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.distance?.short
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.short}:</span>
-                        <strong className="font-black">{t.distance?.short || 'G'}</strong>
-                      </div>
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.distance?.mile
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.mile}:</span>
-                        <strong className="font-black">{t.distance?.mile || 'G'}</strong>
-                      </div>
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.distance?.medium
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.medium}:</span>
-                        <strong className="font-black">{t.distance?.medium || 'G'}</strong>
-                      </div>
-                      <div
-                        className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
-                          t.distance?.long
-                        )}`}
-                      >
-                        <span className="opacity-70 text-[8px] font-medium">{labels.long}:</span>
-                        <strong className="font-black">{t.distance?.long || 'G'}</strong>
-                      </div>
+                      {(['short', 'mile', 'medium', 'long'] as const).map((key) => (
+                        <div
+                          key={key}
+                          className={`py-0.5 px-0.5 rounded border text-[9px] leading-tight flex items-center justify-center gap-0.5 shadow-sm ${getGradeBadgeStyle(
+                            t.distance?.[key]
+                          )}`}
+                        >
+                          <span className="opacity-70 text-[8px] font-medium">{labels[key]}:</span>
+                          <strong className="font-black">{t.distance?.[key] || 'G'}</strong>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>

@@ -59,6 +59,10 @@ export interface ArchetypeDetails {
   accent: string;
 }
 
+// utils/calculator.ts
+
+// ... [Keep everything above calculateAnalysis]
+
 export function calculateAnalysis(
   slots: OshiSlot[],
   mode: TerminologyMode = 'global',
@@ -67,7 +71,7 @@ export function calculateAnalysis(
 ) {
   const active = slots.filter((s): s is { rank: number; trainee: Trainee } => s.trainee !== null);
   const gradeMatrix = APTITUDE_MATRICES[filterMode];
-  const dict = TERMINOLOGY[mode];
+  const dict = TERMINOLOGY[mode] || TERMINOLOGY.global;
 
   const styleRaw = { front: 0, pace: 0, late: 0, end: 0 };
   const distanceRaw = { short: 0, mile: 0, medium: 0, long: 0 };
@@ -119,13 +123,19 @@ export function calculateAnalysis(
     dirt: totalSurf > 0 ? Math.round((surfaceRaw.dirt / totalSurf) * 100) : 0,
   };
 
-  const maxStyleKey = (Object.keys(styleRaw) as Array<keyof typeof styleRaw>).reduce((a, b) =>
-    styleRaw[a] > styleRaw[b] ? a : b
-  );
+  const maxStyleKey =
+    active.length > 0 && totalStyle > 0
+      ? (Object.keys(styleRaw) as Array<keyof typeof styleRaw>).reduce((a, b) =>
+          styleRaw[a] > styleRaw[b] ? a : b
+        )
+      : null;
 
-  const maxDistKey = (Object.keys(distanceRaw) as Array<keyof typeof distanceRaw>).reduce((a, b) =>
-    distanceRaw[a] > distanceRaw[b] ? a : b
-  );
+  const maxDistKey =
+    active.length > 0 && totalDist > 0
+      ? (Object.keys(distanceRaw) as Array<keyof typeof distanceRaw>).reduce((a, b) =>
+          distanceRaw[a] > distanceRaw[b] ? a : b
+        )
+      : null;
 
   let archetype: ArchetypeDetails;
 
@@ -133,13 +143,14 @@ export function calculateAnalysis(
     archetype = {
       badge: '🏇 Stable Initializing',
       title: 'Awaiting Trainer Roster',
-      description: 'Select your favorite Uma Musume trainees to calculate your running style distribution, distance affinity radar, and personalized trainer archetype.',
+      description:
+        'Select your favorite Uma Musume trainees to calculate your running style distribution, distance affinity radar, and personalized trainer archetype.',
       strategy: 'Add your top Oshis in the ranking list to receive custom inheritance advice and race tactics.',
       gradient: 'from-slate-850 via-slate-900 to-[#0e1424]',
       border: 'border-slate-800',
       accent: 'text-slate-400',
     };
-  } else if (stylePct[maxStyleKey] >= 30) {
+  } else if (maxStyleKey && stylePct[maxStyleKey] >= 30) {
     switch (maxStyleKey) {
       case 'front':
         archetype = {
@@ -190,7 +201,8 @@ export function calculateAnalysis(
     archetype = {
       badge: mode === 'global' ? '👑 Strategic Maestro' : '👑 オールラウンダー',
       title: mode === 'global' ? 'The Versatile All-Rounder' : 'The All-Rounder (オールラウンダー)',
-      description: 'Your Top Oshis span a balanced variety of racing disciplines, giving your stable supreme adaptability across every distance bracket.',
+      description:
+        'Your Top Oshis span a balanced variety of racing disciplines, giving your stable supreme adaptability across every distance bracket.',
       strategy: 'Build flexible team compositions with multi-style cornering skills and balanced inheritance lines.',
       gradient: 'from-indigo-700 via-purple-600 to-pink-600',
       border: 'border-purple-400/30',
@@ -202,14 +214,14 @@ export function calculateAnalysis(
     activeCount: active.length,
     styleRaw,
     stylePct,
-    distPct,
     distanceRaw,
-    surfPct,
+    distPct,
     surfaceRaw,
+    surfPct,
     turfCount,
     dirtCount,
     dominantStyleKey: maxStyleKey,
-    dominantDistName: dict.distance[maxDistKey],
+    dominantDistName: maxDistKey ? dict.distance[maxDistKey] : null,
     archetype,
   };
 }

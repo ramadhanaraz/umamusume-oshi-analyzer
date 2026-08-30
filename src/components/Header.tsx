@@ -1,3 +1,4 @@
+// components/Header.tsx
 'use client';
 
 import React from 'react';
@@ -21,6 +22,7 @@ interface HeaderProps {
   activeCount: number;
   totalCount: number;
   onOpenExport: () => void;
+  isReadOnly?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,18 +31,22 @@ export const Header: React.FC<HeaderProps> = ({
   mode,
   setMode,
   activeCount,
+  totalCount,
   onOpenExport,
+  isReadOnly = false,
 }) => {
   const tabs: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'dashboard', label: 'Dashboard & Analytics', icon: LayoutGrid },
     { id: 'roster', label: `My Top 50 List (${activeCount})`, icon: ListOrdered },
-    { id: 'database', label: 'Uma Database (133)', icon: Database },
+    { id: 'database', label: `Uma Database (${totalCount || 133})`, icon: Database },
     { id: 'archetype', label: 'Archetype & Strategy', icon: Sparkles },
-    { id: 'presets', label: 'Import / Export / Presets', icon: FolderDown },
+    ...(!isReadOnly
+      ? [{ id: 'presets' as TabType, label: 'Import / Export / Presets', icon: FolderDown }]
+      : []),
   ];
 
   return (
-    <header className="w-full bg-[#080c18] border-b border-slate-800/80 select-none">
+    <header className="sticky top-0 z-40 w-full bg-[#070b16]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0 space-y-4">
         
         {/* Top Branding & Action Row */}
@@ -68,6 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
                 Terminology:
               </span>
               <button
+                type="button"
                 onClick={() => setMode('global')}
                 className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all ${
                   mode === 'global' ? 'bg-pink-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
@@ -76,6 +83,7 @@ export const Header: React.FC<HeaderProps> = ({
                 Global
               </button>
               <button
+                type="button"
                 onClick={() => setMode('jp')}
                 className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all ${
                   mode === 'jp' ? 'bg-pink-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
@@ -92,8 +100,15 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Export Card Shortcut */}
             <button
-              onClick={onOpenExport}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold shadow-md shadow-pink-500/20 transition-all flex items-center gap-1.5 active:scale-95"
+              type="button"
+              disabled={isReadOnly}
+              onClick={!isReadOnly ? onOpenExport : undefined}
+              title={isReadOnly ? 'Export card is disabled in shared preview mode' : 'Export Strategy Card'}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                isReadOnly
+                  ? 'bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
+                  : 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-md shadow-pink-500/20 active:scale-95'
+              }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Export Card</span>
@@ -109,6 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap rounded-t-lg ${
                   isActive

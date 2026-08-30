@@ -6,6 +6,11 @@
   color-scheme: dark;
 }
 
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
 body {
   background-color: #030712;
   color: #f8fafc;

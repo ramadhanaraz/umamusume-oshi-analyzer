@@ -78,7 +78,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({
               <span>Export Summary Card</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Generate a high-res 1200×675 image card showcasing your Top 10 trainees, archetype, and stats for Discord & X.
+              Fancy sharing your Oshis? Generate a high-res 1200×675 image card showcasing your Top 5 trainees and archetype for you to share.
             </p>
           </div>
           <button

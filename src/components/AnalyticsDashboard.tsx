@@ -14,6 +14,7 @@ interface AnalyticsDashboardProps {
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, analysis }) => {
   const dict = TERMINOLOGY[mode] || TERMINOLOGY.global;
   const {
+    activeCount,
     stylePct,
     distPct,
     surfPct,
@@ -29,13 +30,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, an
   const styleKeys: Array<keyof typeof dict.style> = ['front', 'pace', 'late', 'end'];
   const distanceKeys: Array<keyof typeof dict.distance> = ['short', 'mile', 'medium', 'long'];
 
+  const hasTrainees = activeCount > 0;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch animate-fadeIn">
       
-      {/* 1. Running Style Distribution Card (Blue/Cyan Theme) */}
+      {/* 1. Running Style Distribution Card */}
       <div className="bg-[#0b101e]/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
         
-        {/* Card Header */}
+        {/* Card Header (Fixed English) */}
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-inner">
@@ -63,8 +66,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, an
           {styleKeys.map((key) => {
             const pct = stylePct[key] || 0;
             const pts = styleRaw[key] || 0;
-            const label = dict.style[key];
-            const isDominant = dominantStyleKey === key || pct >= 30;
+            const label = dict.style[key]; // Scoped Aptitude Terminology
+            const isDominant = hasTrainees && pts > 0 && (dominantStyleKey === key || pct >= 30);
 
             return (
               <div
@@ -105,23 +108,28 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, an
           })}
         </div>
 
-        {/* Bottom Style Insight */}
+        {/* Bottom Style Insight (Fixed English Commentary) */}
         <div className="min-h-[50px] bg-slate-950/60 border border-slate-800/80 rounded-2xl px-4 py-2.5 flex items-center gap-3 text-xs">
-          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-          <span className="text-slate-300 text-[11px] leading-snug">
-            <strong className="text-amber-300">
-              Insight:
-            </strong>{' '}
-            {dict.style[dominantStyleKey as keyof typeof dict.style]} is your most prominent tactical archetype ({stylePct[dominantStyleKey as keyof typeof stylePct]}%).
-          </span>
+          <Sparkles className={`w-4 h-4 shrink-0 ${hasTrainees ? 'text-amber-400' : 'text-slate-500'}`} />
+          {hasTrainees && dominantStyleKey ? (
+            <span className="text-slate-300 text-[11px] leading-snug">
+              <strong className="text-amber-300">Insight:</strong>{' '}
+              {dict.style[dominantStyleKey as keyof typeof dict.style]} is your most prominent tactical archetype ({stylePct[dominantStyleKey as keyof typeof stylePct]}%).
+            </span>
+          ) : (
+            <span className="text-slate-400 text-[11px] leading-snug">
+              <strong className="text-slate-300">Insight:</strong>{' '}
+              Assign trainees to your Top 50 list to calculate your tactical archetype.
+            </span>
+          )}
         </div>
 
       </div>
 
-      {/* 2. Distance & Surface Distribution Card (Red/Rose Theme) */}
+      {/* 2. Distance & Surface Distribution Card */}
       <div className="bg-[#0b101e]/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
         
-        {/* Card Header */}
+        {/* Card Header (Fixed English) */}
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-inner">
@@ -147,7 +155,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, an
         {/* Section A & B Body */}
         <div className="flex-1 flex flex-col justify-between py-1 space-y-3 mb-4">
           
-          {/* Section A: Distance Affinity (2x2 Grid) */}
+          {/* Section A: Distance Affinity (Fixed English Section Title) */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-300">
               <Route className="w-3.5 h-3.5 text-rose-400" />
@@ -158,8 +166,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, an
               {distanceKeys.map((key) => {
                 const pct = distPct[key] || 0;
                 const pts = distanceRaw[key] || 0;
-                const label = dict.distance[key];
-                const isDominant = pct >= 30 || Object.entries(distPct).every(([, v]) => pct >= v);
+                const label = dict.distance[key]; // Scoped Aptitude Terminology
+                const isDominant = hasTrainees && pts > 0 && pct >= 30;
 
                 return (
                   <div
@@ -202,7 +210,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, an
             </div>
           </div>
 
-          {/* Section B: Surface Affinity (Turf vs. Dirt) */}
+          {/* Section B: Surface Affinity (Fixed English Section Title) */}
           <div className="space-y-1.5 pt-1.5 border-t border-slate-800/60">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
               <div className="flex items-center gap-1.5">
@@ -267,17 +275,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ mode, an
 
         </div>
 
-        {/* Bottom Distance & Surface Insight */}
+        {/* Bottom Distance & Surface Insight (Fixed English Commentary) */}
         <div className="min-h-[50px] bg-slate-950/60 border border-slate-800/80 rounded-2xl px-4 py-2.5 flex items-center gap-3 text-xs">
-          <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
-          <span className="text-slate-300 text-[11px] leading-snug">
-            <strong className="text-rose-300">
-              Distance Specialty:
-            </strong>{' '}
-            Peak focus in <strong className="text-white">{dominantDistName}</strong> races with{' '}
-            <strong className="text-emerald-300">{turfCount} Turf</strong> &{' '}
-            <strong className="text-amber-300">{dirtCount} Dirt</strong> runners.
-          </span>
+          <Sparkles className={`w-4 h-4 shrink-0 ${hasTrainees ? 'text-rose-400' : 'text-slate-500'}`} />
+          {hasTrainees && dominantDistName ? (
+            <span className="text-slate-300 text-[11px] leading-snug">
+              <strong className="text-rose-300">Distance Specialty:</strong>{' '}
+              Peak focus in <strong className="text-white">{dominantDistName}</strong> races with{' '}
+              <strong className="text-emerald-300">{turfCount} Turf</strong> &{' '}
+              <strong className="text-amber-300">{dirtCount} Dirt</strong> runners.
+            </span>
+          ) : (
+            <span className="text-slate-400 text-[11px] leading-snug">
+              <strong className="text-slate-300">Distance Specialty:</strong>{' '}
+              Assign trainees to analyze your stable’s distance and track surface viability.
+            </span>
+          )}
         </div>
 
       </div>

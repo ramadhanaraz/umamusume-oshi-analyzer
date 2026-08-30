@@ -90,7 +90,7 @@ export const TRAINEE_PORTRAITS: Record<string, string> = {
   'verxina': '/trainees/089_109001_Verxina.png',
   'vivlos': '/trainees/090_109101_Vivlos.png',
   'dantsu-flame': '/trainees/091_109201_Dantsu_Flame.png',
-  'ks-miracle': '/trainees/092_109301_K.S.Miracle.png',
+  'ksmiracle': '/trainees/092_109301_K.S.Miracle.png',
   'jungle-pocket': '/trainees/093_109401_Jungle_Pocket.png',
   'believe': '/trainees/094_109501_Believe.png',
   'no-reason': '/trainees/095_109601_No_Reason.png',
