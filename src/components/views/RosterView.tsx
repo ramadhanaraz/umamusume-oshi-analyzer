@@ -9,7 +9,7 @@ import {
   pointerWithin,
   CollisionDetection,
   MeasuringStrategy,
-  PointerSensor,
+  MouseSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -231,13 +231,27 @@ export const RosterView: React.FC<RosterViewProps> = ({
     }
   }, [baseFilteredTrainees, activeDragId]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 3,
-      },
-    })
-  );
+  // Only use MouseSensor for drag-and-drop, requiring a 5px drag distance to avoid accidental drags on clicks
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: {
+      distance: 5,
+    },
+  });
+
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+
+  useEffect(() => {
+    const checkViewport = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
+
+  // Pass mouseSensor on desktop; empty array on mobile screens
+  const sensors = useSensors(mouseSensor);
 
   const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
     const pointerCollisions = pointerWithin(args);
@@ -383,6 +397,8 @@ export const RosterView: React.FC<RosterViewProps> = ({
                 ? 'Viewing shared roster in read-only mode • Save to personalize'
                 : isFiltering
                 ? 'Sorting filtered items within their current ranks'
+                : isMobileScreen
+                ? 'Tap rank numbers or card menu to jump positions'
                 : 'Drag any card or click rank numbers to jump positions'}
             </p>
           </div>
@@ -480,52 +496,53 @@ export const RosterView: React.FC<RosterViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Seamless Sticky Filter Bar */}
+      {/* 2. Seamless Sticky Filter Bar (Mobile Optimized) */}
       {activeCount > 0 && (
-        <div className={`sticky z-30 py-3 pb-5 bg-[#070b16] shadow-[0_12px_24px_-10px_rgba(7,11,22,0.95)] transition-all ${
-          isReadOnly
-            ? 'top-[160px] sm:top-[168px]'
-            : 'top-[112px] sm:top-[120px]'
-        }`}
-      >
-          <div className="p-3.5 sm:p-4 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl space-y-3">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div
+          className={`sticky z-30 py-1.5 sm:py-3 pb-2 sm:pb-5 bg-[#070b16]/95 backdrop-blur-md shadow-[0_12px_24px_-10px_rgba(7,11,22,0.95)] transition-all ${
+            isReadOnly
+              ? 'top-[225px] sm:top-[168px]'
+              : 'top-[185px] sm:top-[116px] md:top-[120px]'
+          }`}
+        >
+          <div className="p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl space-y-2 sm:space-y-3">
+            {/* Search Input & Counter Row */}
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-500" />
+                <Search className="w-3.5 sm:w-4 h-3.5 sm:h-4 absolute left-3 top-2.5 text-slate-500" />
                 <input
                   type="text"
-                  placeholder="Search trainees within your Top 50..."
+                  placeholder="Search trainees in Top 50..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 transition-colors"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 transition-colors"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
                     aria-label="Clear search query"
-                    className="absolute right-2.5 top-2.5 text-slate-500 hover:text-white"
+                    className="absolute right-2.5 top-2 sm:top-2.5 text-slate-500 hover:text-white"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              <div className="text-[11px] font-mono font-semibold px-2 shrink-0 text-right text-slate-400">
-                Showing{' '}
+              <div className="text-[10px] sm:text-[11px] font-mono font-semibold px-1 sm:px-2 shrink-0 text-right text-slate-400">
                 <strong className={isFiltering ? 'text-pink-400 font-bold' : 'text-white'}>
                   {renderedItems.length}
-                </strong>{' '}
-                of {activeCount}
+                </strong>
+                <span className="text-slate-500">/{activeCount}</span>
               </div>
             </div>
 
-            {/* Filter Clusters */}
-            <div className="flex items-center gap-2.5 overflow-x-auto custom-scrollbar pb-1 pt-0.5 text-[11px]">
+            {/* Horizontally Scrollable Filter Chips */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto custom-scrollbar pb-1 pt-0.5 text-[10px] sm:text-[11px] touch-pan-x">
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
                   selectedFilters.length === 0
                     ? 'bg-pink-600 text-white shadow-md shadow-pink-600/25'
                     : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
@@ -534,11 +551,11 @@ export const RosterView: React.FC<RosterViewProps> = ({
                 All
               </button>
 
-              <div className="h-5 w-px bg-slate-800 shrink-0" />
+              <div className="h-4 sm:h-5 w-px bg-slate-800 shrink-0" />
 
-              {/* Surface */}
-              <div className="flex items-center gap-1.5 shrink-0 bg-slate-950/50 p-1 rounded-2xl border border-slate-800/60">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2">
+              {/* Surface Filters */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 bg-slate-950/50 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-800/60">
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1.5 sm:px-2">
                   Surface:
                 </span>
                 {(
@@ -553,32 +570,32 @@ export const RosterView: React.FC<RosterViewProps> = ({
                       key={chip.id}
                       type="button"
                       onClick={() => handleToggleFilter(chip.id)}
-                      className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
+                      className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
                         isSelected
                           ? 'bg-emerald-600 text-white shadow-sm'
                           : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
                       }`}
                     >
-                      <span className="text-[10px]">{chip.emoji}</span>
+                      <span>{chip.emoji}</span>
                       <span>{chip.label}</span>
                     </button>
                   );
                 })}
               </div>
 
-              <div className="h-5 w-px bg-slate-800 shrink-0" />
+              <div className="h-4 sm:h-5 w-px bg-slate-800 shrink-0" />
 
-              {/* Style */}
-              <div className="flex items-center gap-1.5 shrink-0 bg-slate-950/50 p-1 rounded-2xl border border-slate-800/60">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2">
+              {/* Style Filters */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 bg-slate-950/50 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-800/60">
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1.5 sm:px-2">
                   Style:
                 </span>
                 {(
                   [
-                    { id: 'front', label: mode === 'jp' ? '逃げ (FR)' : 'Front Runner' },
-                    { id: 'pace', label: mode === 'jp' ? '先行 (PC)' : 'Pace Chaser' },
-                    { id: 'late', label: mode === 'jp' ? '差し (LS)' : 'Late Surger' },
-                    { id: 'end', label: mode === 'jp' ? '追込 (EC)' : 'End Closer' },
+                    { id: 'front', label: mode === 'jp' ? '逃げ (FR)' : 'Front' },
+                    { id: 'pace', label: mode === 'jp' ? '先行 (PC)' : 'Pace' },
+                    { id: 'late', label: mode === 'jp' ? '差し (LS)' : 'Late' },
+                    { id: 'end', label: mode === 'jp' ? '追込 (EC)' : 'End' },
                   ] as const
                 ).map((chip) => {
                   const isSelected = selectedFilters.includes(chip.id);
@@ -587,7 +604,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
                       key={chip.id}
                       type="button"
                       onClick={() => handleToggleFilter(chip.id)}
-                      className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all ${
+                      className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-bold whitespace-nowrap transition-all ${
                         isSelected
                           ? 'bg-cyan-600 text-white shadow-sm'
                           : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
@@ -599,12 +616,12 @@ export const RosterView: React.FC<RosterViewProps> = ({
                 })}
               </div>
 
-              <div className="h-5 w-px bg-slate-800 shrink-0" />
+              <div className="h-4 sm:h-5 w-px bg-slate-800 shrink-0" />
 
-              {/* Distance */}
-              <div className="flex items-center gap-1.5 shrink-0 bg-slate-950/50 p-1 rounded-2xl border border-slate-800/60">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2">
-                  Distance:
+              {/* Distance Filters */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 bg-slate-950/50 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-800/60">
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1.5 sm:px-2">
+                  Dist:
                 </span>
                 {(
                   [
@@ -620,7 +637,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
                       key={chip.id}
                       type="button"
                       onClick={() => handleToggleFilter(chip.id)}
-                      className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all ${
+                      className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-bold whitespace-nowrap transition-all ${
                         isSelected
                           ? 'bg-rose-600 text-white shadow-sm'
                           : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
@@ -700,7 +717,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
         </div>
       ) : (
         <DndContext
-          sensors={isReadOnly ? [] : sensors}
+          sensors={isReadOnly || isMobileScreen ? [] : sensors}
           collisionDetection={collisionDetectionStrategy}
           measuring={{
             droppable: {

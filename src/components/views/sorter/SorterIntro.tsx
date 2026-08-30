@@ -157,7 +157,7 @@ export const SorterIntro: React.FC<SorterIntroProps> = ({
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-            Stuck with an empty stable or torn between endless faves among all <strong className="text-white font-bold">{totalTrainees}</strong> trainees? Let Agnes Digital guide you through this fun matchmaker tournament to seamlessly sort and rank your ultimate Oshi roster!
+            Stuck with an empty list or torn between endless faves among all <strong className="text-white font-bold">{totalTrainees}</strong> trainees? Let Agnes Digital guide you through this fun matchmaker tournament to seamlessly sort and rank your ultimate Oshi roster!
           </p>
 
           {/* Quick Highlights */}
@@ -213,7 +213,7 @@ export const SorterIntro: React.FC<SorterIntroProps> = ({
               <button
                 type="button"
                 onClick={onStart}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-slate-950 font-black text-sm transition-all shadow-xl shadow-pink-500/25 flex items-center justify-center gap-2.5 active:scale-95 shrink-0 cursor-pointer"
+                className="w-full sm:w-auto text-white px-8 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-slate-950 font-black text-sm transition-all shadow-xl shadow-pink-500/25 flex items-center justify-center gap-2.5 active:scale-95 shrink-0 cursor-pointer"
               >
                 <span>Start Oshi Matchmaker</span>
                 <ArrowRight className="w-4 h-4 stroke-[3]" />

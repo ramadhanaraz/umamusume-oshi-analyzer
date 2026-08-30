@@ -173,7 +173,7 @@ export const SorterResults: React.FC<SorterResultsProps> = ({
             <button
               type="button"
               onClick={handleConfirmImport}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 text-slate-950 font-black text-sm shadow-xl shadow-pink-500/25 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shrink-0"
+              className="w-full text-white sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 text-slate-950 font-black text-sm shadow-xl shadow-pink-500/25 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shrink-0"
             >
               <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
               <span>Apply Selected ({selectedIds.size}/50) to My Top 50</span>
