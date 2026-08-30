@@ -88,13 +88,6 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
             isReadOnly={isSharedPreview}
             onFillMore={() => setActiveTab('roster')}
           />
-          <SettingsBar
-            weightMode={weightMode}
-            setWeightMode={setWeightMode}
-            filterMode={filterMode}
-            setFilterMode={setFilterMode}
-          />
-          <AnalyticsDashboard mode={mode} analysis={analysis} />
           <TopFiveOshis
             slots={slots}
             mode={mode}
@@ -103,6 +96,13 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
             onOpenActionMenu={onOpenActionMenu}
             onManageTop50={() => setActiveTab('roster')}
           />
+          <SettingsBar
+            weightMode={weightMode}
+            setWeightMode={setWeightMode}
+            filterMode={filterMode}
+            setFilterMode={setFilterMode}
+          />
+          <AnalyticsDashboard mode={mode} analysis={analysis} />
         </div>
       )}
 

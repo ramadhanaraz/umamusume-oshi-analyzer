@@ -59,10 +59,6 @@ export interface ArchetypeDetails {
   accent: string;
 }
 
-// utils/calculator.ts
-
-// ... [Keep everything above calculateAnalysis]
-
 export function calculateAnalysis(
   slots: OshiSlot[],
   mode: TerminologyMode = 'global',

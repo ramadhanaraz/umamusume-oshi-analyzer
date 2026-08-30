@@ -1,10 +1,9 @@
-// components/modals/ExportCardModal.tsx
 'use client';
 
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { Download, Share2, Copy, Check, X, Sparkles, Crown } from 'lucide-react';
-import { TerminologyMode, TERMINOLOGY } from '../../types/trainee';
+import { TerminologyMode, TERMINOLOGY, WeightingMode, AptitudeFilterMode } from '../../types/trainee';
 import { ArchetypeDetails, OshiSlot } from '../../utils/calculator';
 import { getRankPillStyle } from '../../utils/gradeStyles';
 import { encodeRosterToUrl } from '../../utils/urlSerializer';
@@ -15,6 +14,8 @@ interface ExportCardModalProps {
   onClose: () => void;
   slots: OshiSlot[];
   mode?: TerminologyMode;
+  weightMode?: WeightingMode;
+  filterMode?: AptitudeFilterMode;
   archetype?: ArchetypeDetails;
   stylePct?: Record<string, number>;
   distPct?: Record<string, number>;
@@ -27,6 +28,8 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
   onClose,
   slots = [],
   mode = 'global',
+  weightMode = 'tiered',
+  filterMode = 'aOnly',
   archetype = {
     badge: '🏇 Stable Archetype',
     title: 'The Leader (先行) Tactician',
@@ -98,7 +101,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
 
   const handleCopyLink = async () => {
     if (typeof window === 'undefined') return;
-    const compressed = encodeRosterToUrl(slots);
+    const compressed = encodeRosterToUrl(slots, weightMode, filterMode);
     const url = new URL(window.location.origin + window.location.pathname);
     url.searchParams.set('roster', compressed);
 
@@ -130,7 +133,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
           <div className="flex items-center gap-2.5">
             <Share2 className="w-4 h-4 text-pink-400" />
             <h2 className="text-sm font-bold text-white tracking-tight">
-              Export Stable Summary Card
+              Export Oshi Summary Card
             </h2>
           </div>
           <button
@@ -178,7 +181,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                   'radial-gradient(ellipse 80% 50% at 50% -15%, rgba(244, 63, 94, 0.15), transparent), radial-gradient(ellipse 60% 40% at 95% 95%, rgba(56, 189, 248, 0.08), transparent)',
               }}
             >
-              {/* Card Banner (English Structure) */}
+              {/* Card Banner */}
               <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                 <div className="flex items-center gap-3">
                   <AppLogo size="md" />
@@ -187,17 +190,29 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                       Umamusume Top 50 Oshi Strategy Analyzer
                     </h1>
                     <p className="text-[11px] text-slate-400 mt-1 font-medium">
-                      Stable Archetype Profile & Top Trainee Strategy Distribution
+                      Oshi Archetype Profile & Strategy Distribution
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block">
-                    STABLE ARCHETYPE
-                  </span>
-                  <span className="text-sm font-black text-amber-300">
-                    {archetype?.title || archetype?.badge || 'All-Rounder'}
-                  </span>
+
+                {/* Right Header Stats: Roster Size & Archetype */}
+                <div className="flex items-center gap-3.5">
+                  <div className="text-right pr-3.5 border-r border-slate-800/90">
+                    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest block font-bold">
+                      ROSTER SIZE
+                    </span>
+                    <span className="text-xs font-mono font-black text-pink-400">
+                      {filledCount} <span className="text-slate-500 font-medium">/ 50</span>
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest block font-bold">
+                      OSHIS ARCHETYPE
+                    </span>
+                    <span className="text-sm font-black text-amber-300">
+                      {archetype?.title || archetype?.badge || 'All-Rounder'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -206,21 +221,17 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                 
                 {/* Left: Top 5 Showcase */}
                 <div className="col-span-7 flex flex-col justify-between space-y-2.5">
-                  
-                  {/* Dashboard Subheader (English) */}
                   <div className="flex items-center gap-2 pb-0.5">
                     <Crown className="w-4 h-4 text-amber-400" />
                     <span className="font-black text-amber-400 uppercase tracking-wider text-[13px] leading-none drop-shadow-sm">
                       I WAS BORN FOR DEM OSHIS
                     </span>
                     <span className="text-slate-400 text-xs font-semibold tracking-tight leading-none">
-                      (Top 5 Oshis • Rank 1–5)
+                      (Top 5 Spotlight • {filledCount}/50 Analyzed)
                     </span>
                   </div>
 
-                  {/* Grid: #1 Left (6 cols), #2-#5 Right 2x2 (6 cols) */}
                   <div className="grid grid-cols-12 gap-2.5 h-[340px]">
-                    
                     {/* Rank #1 Spotlight */}
                     <div
                       className={`col-span-6 h-full relative rounded-2xl overflow-hidden bg-[#0d1426] transition-all ${getCardBorder(
@@ -236,7 +247,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                             className="absolute inset-0 w-full h-full object-cover blur-xl opacity-80 scale-135 brightness-125 saturate-[2.5] pointer-events-none"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/30 to-transparent" />
-                          
                           <img
                             src={slot1.trainee.image}
                             alt={mode === 'jp' ? slot1.trainee.nameJp : slot1.trainee.nameEn}
@@ -249,7 +259,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                         </div>
                       )}
 
-                      {/* Rank #1 Badge */}
                       <div
                         className={`absolute top-2.5 left-2.5 h-6 px-2 rounded-lg flex items-center gap-1 text-xs font-black z-10 ${getRankPillStyle(
                           1
@@ -258,7 +267,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                         <span>★ 1</span>
                       </div>
 
-                      {/* Bottom Name Vignette (Dynamic Name) */}
                       <div className="absolute inset-x-0 bottom-0 pt-16 pb-3 px-3 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10">
                         <p className="text-sm font-black text-white leading-tight drop-shadow-md tracking-tight">
                           {slot1?.trainee
@@ -270,7 +278,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Ranks #2 to #5: 2x2 Grid */}
+                    {/* Ranks #2 to #5 */}
                     <div className="col-span-6 grid grid-cols-2 grid-rows-2 gap-2.5 h-full">
                       {[slot2, slot3, slot4, slot5].map((slot, idx) => {
                         const rankNum = idx + 2;
@@ -292,7 +300,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                                   className="absolute inset-0 w-full h-full object-cover blur-xl opacity-80 scale-135 brightness-125 saturate-[2.5] pointer-events-none"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/30 to-transparent" />
-                                
                                 <img
                                   src={t.image}
                                   alt={mode === 'jp' ? t.nameJp : t.nameEn}
@@ -305,7 +312,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                               </div>
                             )}
 
-                            {/* Rank Badge */}
                             <div
                               className={`absolute top-2 left-2 h-5 min-w-[20px] px-1.5 rounded-md flex items-center justify-center text-[10px] font-black z-10 ${getRankPillStyle(
                                 rankNum
@@ -314,7 +320,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                               <span>{rankNum}</span>
                             </div>
 
-                            {/* Bottom Name Vignette (Dynamic Name) */}
                             <div className="absolute inset-x-0 bottom-0 pt-8 pb-1.5 px-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-10">
                               <p className="text-[11px] font-black text-white truncate leading-tight drop-shadow-sm">
                                 {t
@@ -328,14 +333,11 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                         );
                       })}
                     </div>
-
                   </div>
                 </div>
 
                 {/* Right: Strategy & Distance Breakdown */}
                 <div className="col-span-5 flex flex-col justify-between bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 space-y-3.5">
-                  
-                  {/* Running Style Distribution */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-200">
@@ -349,7 +351,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                     <div className="space-y-1.5">
                       {styleKeys.map((key) => {
                         const pct = computedStylePct[key] || 0;
-                        const label = dict.style[key]; // Dynamic JP/Global label
+                        const label = dict.style[key];
                         const isDominant = pct >= 30;
 
                         return (
@@ -378,7 +380,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Distance Specialty Distribution */}
                   <div className="space-y-2 pt-2 border-t border-slate-800/60">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-200">
@@ -392,7 +393,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                     <div className="grid grid-cols-2 gap-2">
                       {distanceKeys.map((key) => {
                         const pct = computedDistPct[key] || 0;
-                        const label = dict.distance[key]; // Dynamic JP/Global label
+                        const label = dict.distance[key];
                         const isDominant = pct >= 30;
 
                         return (
@@ -423,12 +424,11 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
                       })}
                     </div>
                   </div>
-
                 </div>
 
               </div>
 
-              {/* Card Footer (English) */}
+              {/* Card Footer */}
               <div className="pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3 text-pink-400" />
@@ -441,7 +441,6 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
           </div>
 
         </div>
-
       </div>
     </div>
   );

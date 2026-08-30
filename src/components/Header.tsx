@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   LayoutGrid,
   ListOrdered,
@@ -45,25 +46,40 @@ export const Header: React.FC<HeaderProps> = ({
       : []),
   ];
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    setActiveTab('dashboard');
+    if (typeof window !== 'undefined' && window.location.search) {
+      e.preventDefault();
+      window.location.href = window.location.pathname;
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 w-full bg-[#070b16]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0 space-y-4">
         
         {/* Top Branding & Action Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="translate-y-[1.5px] shrink-0">
+          
+          {/* Clickable App Logo & Title */}
+          <Link
+            href="/"
+            onClick={handleLogoClick}
+            title="Reset to clean URL and return to Dashboard"
+            className="flex items-center gap-3.5 group cursor-pointer select-none transition-all duration-200 active:scale-[0.99]"
+          >
+            <div className="translate-y-[1.5px] shrink-0 transition-transform duration-300 group-hover:scale-105">
               <AppLogo />
             </div>
             <div className="flex flex-col justify-center">
-              <h1 className="text-base sm:text-xl font-black tracking-tight leading-snug bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent">
+              <h1 className="text-base sm:text-xl font-black tracking-tight leading-snug bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent group-hover:brightness-110 transition-all">
                 Umamusume Top 50 Oshi Strategy Analyzer
               </h1>
-              <p className="text-[11px] sm:text-xs text-slate-400 font-medium leading-snug mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-400 font-medium leading-snug mt-0.5 group-hover:text-slate-300 transition-colors">
                 Rank your favorite 50 trainees to determine your optimal running style and race affinity.
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Right Action Group */}
           <div className="flex items-center gap-3 self-end sm:self-center">

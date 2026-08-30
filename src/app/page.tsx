@@ -1,9 +1,10 @@
+// app/page.tsx
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Eye, ArrowLeft, Save } from 'lucide-react';
 import { TRAINEES } from '../data/trainees';
-import { Trainee, TerminologyMode, WeightingMode, AptitudeFilterMode } from '../types/trainee';
+import { Trainee, TerminologyMode } from '../types/trainee';
 import { calculateAnalysis } from '../utils/calculator';
 import { useRosterHydration } from '../hooks/useRosterHydration';
 import { Header, TabType } from '../components/Header';
@@ -14,9 +15,14 @@ import { ModalContainer } from '../components/ModalContainer';
 const TOTAL_SLOTS = 50;
 
 function HomeContent() {
+  // Hydration Hook (Manages slots, calculations, LocalStorage & URL sharing)
   const {
     slots,
     setSlots,
+    weightMode,
+    setWeightMode,
+    filterMode,
+    setFilterMode,
     isSharedPreview,
     copied,
     exitPreview,
@@ -24,11 +30,9 @@ function HomeContent() {
     handleShare,
   } = useRosterHydration();
 
-  // Navigation & Filter States
+  // Navigation & Terminology States
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [mode, setMode] = useState<TerminologyMode>('global');
-  const [weightMode, setWeightMode] = useState<WeightingMode>('tiered');
-  const [filterMode, setFilterMode] = useState<AptitudeFilterMode>('aOnly');
 
   // Modal Open / Focus States
   const [activeSlotRank, setActiveSlotRank] = useState<number | null>(null);
@@ -37,6 +41,13 @@ function HomeContent() {
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+
+  // Safety: Reset tab to 'dashboard' if viewing a shared link while on 'presets'
+  useEffect(() => {
+    if (isSharedPreview && activeTab === 'presets') {
+      setActiveTab('dashboard');
+    }
+  }, [isSharedPreview, activeTab]);
 
   // Derived Roster & Analysis States
   const activeTrainees = slots.filter((s): s is { rank: number; trainee: Trainee } => s.trainee !== null);
@@ -159,7 +170,6 @@ function HomeContent() {
     <main className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans">
       {/* Unified Sticky App Header & Banner Container */}
       <div className="sticky top-0 z-40 w-full flex flex-col shadow-xl bg-[#070b16]/95 backdrop-blur-xl border-b border-slate-800/80">
-        
         {/* Shared Link Banner */}
         {isSharedPreview && (
           <div className="w-full bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-b border-amber-500/30 px-4 py-2.5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-fadeIn select-none">
@@ -250,6 +260,8 @@ function HomeContent() {
         activeTraineeRanks={activeTraineeRanks}
         analysis={analysis}
         mode={mode}
+        weightMode={weightMode}
+        filterMode={filterMode}
         isExportOpen={isExportOpen}
         onCloseExport={() => setIsExportOpen(false)}
         activeSlotRank={activeSlotRank}

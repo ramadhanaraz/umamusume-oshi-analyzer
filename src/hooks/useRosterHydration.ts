@@ -1,12 +1,16 @@
+// hooks/useRosterHydration.ts
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { Trainee, WeightingMode, AptitudeFilterMode } from '../types/trainee';
 import { OshiSlot } from '../utils/calculator';
 import { encodeRosterToUrl, decodeRosterFromUrl } from '../utils/urlSerializer';
 import { TRAINEES } from '../data/trainees';
 
 const TOTAL_SLOTS = 50;
+const LOCAL_STORAGE_ROSTER_KEY = 'umamusume-top50-roster';
+const LOCAL_STORAGE_SETTINGS_KEY = 'umamusume-top50-calc-settings';
 
 const createEmptySlots = (): OshiSlot[] =>
   Array.from({ length: TOTAL_SLOTS }, (_, i) => ({
@@ -19,83 +23,170 @@ export function useRosterHydration() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Roster Slots State
   const [slots, setSlots] = useState<OshiSlot[]>(createEmptySlots);
-  const [localSavedSlots, setLocalSavedSlots] = useState<OshiSlot[] | null>(null);
-  const [isSharedPreview, setIsSharedPreview] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const isHydratedRef = useRef(false);
 
+  // Calculation Formula States
+  const [weightMode, setWeightMode] = useState<WeightingMode>('tiered');
+  const [filterMode, setFilterMode] = useState<AptitudeFilterMode>('aOnly');
+
+  // Preview & Hydration Flags
+  const [isSharedPreview, setIsSharedPreview] = useState<boolean>(false);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // ----------------------------------------------------
+  // 1. Initial Hydration: Load LocalStorage OR Shared Link
+  // ----------------------------------------------------
   useEffect(() => {
-    if (isHydratedRef.current) return;
-
-    let storedSlots = createEmptySlots();
-
-    try {
-      const saved = localStorage.getItem('umamusume-top50-roster');
-      if (saved) {
-        const parsedIds: string[] = JSON.parse(saved);
-        const map = new Map(TRAINEES.map((t) => [t.id, t]));
-        storedSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => ({
-          rank: i + 1,
-          trainee: parsedIds[i] ? map.get(parsedIds[i]) || null : null,
-        }));
-        setLocalSavedSlots(storedSlots);
-      }
-    } catch (e) {
-      console.error('LocalStorage load failed:', e);
-    }
-
     const sharedParam = searchParams.get('roster') || searchParams.get('r');
+
     if (sharedParam) {
-      const decodedTrainees = decodeRosterFromUrl(sharedParam, TRAINEES);
-      if (decodedTrainees && decodedTrainees.length > 0) {
+      // 1A. Shared Link Mode: Decode and display without touching LocalStorage
+      const decoded = decodeRosterFromUrl(sharedParam, TRAINEES);
+      if (decoded && decoded.trainees.length > 0) {
         const incomingSlots: OshiSlot[] = Array.from({ length: TOTAL_SLOTS }, (_, i) => ({
           rank: i + 1,
-          trainee: decodedTrainees[i] || null,
+          trainee: decoded.trainees[i] || null,
         }));
+
         setSlots(incomingSlots);
+        setWeightMode(decoded.weightMode);
+        setFilterMode(decoded.filterMode);
         setIsSharedPreview(true);
-        isHydratedRef.current = true;
+        setIsLoaded(true);
         return;
       }
     }
 
-    setSlots(storedSlots);
-    isHydratedRef.current = true;
+    // 1B. Personal Mode: Load saved roster & formula settings from LocalStorage
+    try {
+      const savedRoster = localStorage.getItem(LOCAL_STORAGE_ROSTER_KEY);
+      if (savedRoster) {
+        const parsedIds: string[] = JSON.parse(savedRoster);
+        const map = new Map(TRAINEES.map((t) => [t.id, t]));
+        const loadedSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => ({
+          rank: i + 1,
+          trainee: parsedIds[i] ? map.get(parsedIds[i]) || null : null,
+        }));
+        setSlots(loadedSlots);
+      } else {
+        setSlots(createEmptySlots());
+      }
+
+      const savedSettings = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.weightMode) setWeightMode(parsed.weightMode);
+        if (parsed.filterMode) setFilterMode(parsed.filterMode);
+      }
+    } catch (e) {
+      console.error('Failed to load data from LocalStorage:', e);
+    }
+
+    setIsSharedPreview(false);
+    setIsLoaded(true);
   }, [searchParams]);
 
+  // ----------------------------------------------------
+  // 2. Auto-save to LocalStorage (Personal Mode Only)
+  // ----------------------------------------------------
   useEffect(() => {
-    if (!isHydratedRef.current || isSharedPreview) return;
+    // Strictly guard against saving while uninitialized or in shared preview mode
+    if (!isLoaded || isSharedPreview) return;
+
     try {
       const ids = slots.map((s) => s.trainee?.id || '');
-      localStorage.setItem('umamusume-top50-roster', JSON.stringify(ids));
+      localStorage.setItem(LOCAL_STORAGE_ROSTER_KEY, JSON.stringify(ids));
+
+      const settings = { weightMode, filterMode };
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(settings));
     } catch (e) {
-      console.error('LocalStorage save failed:', e);
+      console.error('Failed to save data to LocalStorage:', e);
     }
-  }, [slots, isSharedPreview]);
+  }, [slots, weightMode, filterMode, isLoaded, isSharedPreview]);
 
-  const exitPreview = () => {
-    setSlots(localSavedSlots || createEmptySlots());
+  // ----------------------------------------------------
+  // 3. Shared Preview Actions
+  // ----------------------------------------------------
+  const exitPreview = useCallback(() => {
+    try {
+      const savedRoster = localStorage.getItem(LOCAL_STORAGE_ROSTER_KEY);
+      let restoredSlots = createEmptySlots();
+
+      if (savedRoster) {
+        const parsedIds: string[] = JSON.parse(savedRoster);
+        const map = new Map(TRAINEES.map((t) => [t.id, t]));
+        restoredSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => ({
+          rank: i + 1,
+          trainee: parsedIds[i] ? map.get(parsedIds[i]) || null : null,
+        }));
+      }
+      setSlots(restoredSlots);
+
+      const savedSettings = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        setWeightMode(parsed.weightMode || 'tiered');
+        setFilterMode(parsed.filterMode || 'aOnly');
+      } else {
+        setWeightMode('tiered');
+        setFilterMode('aOnly');
+      }
+    } catch (e) {
+      console.error('Failed to restore personal data from LocalStorage:', e);
+    }
+
     setIsSharedPreview(false);
-    router.replace(pathname);
-  };
 
-  const confirmImportShared = () => {
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', pathname);
+    }
+    router.replace(pathname);
+  }, [pathname, router]);
+
+  const confirmImportShared = useCallback(() => {
     try {
       const ids = slots.map((s) => s.trainee?.id || '');
-      localStorage.setItem('umamusume-top50-roster', JSON.stringify(ids));
-      setLocalSavedSlots(slots);
+      localStorage.setItem(LOCAL_STORAGE_ROSTER_KEY, JSON.stringify(ids));
+
+      const settings = { weightMode, filterMode };
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(settings));
+
       setIsSharedPreview(false);
+
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', pathname);
+      }
       router.replace(pathname);
     } catch (e) {
-      console.error('LocalStorage overwrite failed:', e);
+      console.error('Failed to overwrite LocalStorage with shared roster:', e);
     }
-  };
+  }, [slots, weightMode, filterMode, pathname, router]);
 
-  const handleShare = async () => {
+  const handleShare = async (
+    overrideWeight?: WeightingMode,
+    overrideFilter?: AptitudeFilterMode
+  ) => {
     if (typeof window === 'undefined') return;
-    const compressed = encodeRosterToUrl(slots);
+
+    // Sanitize to prevent React Click Events from being passed as weight mode
+    const validWeights: WeightingMode[] = ['equal', 'tiered', 'linear'];
+    const validFilters: AptitudeFilterMode[] = ['aOnly', 'acViable', 'allGrades'];
+
+    const targetWeight =
+      typeof overrideWeight === 'string' && validWeights.includes(overrideWeight)
+        ? overrideWeight
+        : weightMode;
+
+    const targetFilter =
+      typeof overrideFilter === 'string' && validFilters.includes(overrideFilter)
+        ? overrideFilter
+        : filterMode;
+
+    const compressed = encodeRosterToUrl(slots, targetWeight, targetFilter);
     const url = `${window.location.origin}${window.location.pathname}?roster=${compressed}`;
+
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -108,6 +199,10 @@ export function useRosterHydration() {
   return {
     slots,
     setSlots,
+    weightMode,
+    setWeightMode,
+    filterMode,
+    setFilterMode,
     isSharedPreview,
     copied,
     exitPreview,

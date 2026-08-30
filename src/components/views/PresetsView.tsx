@@ -102,8 +102,9 @@ export const PresetsView: React.FC<PresetsViewProps> = ({
             </p>
           </div>
           <button
-            onClick={onShare}
-            className="w-full py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2"
+            type="button"
+            onClick={() => onShare()} // <-- Wrap in arrow function
+            className="w-full py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 active:scale-95"
           >
             <Share2 className="w-4 h-4" />
             <span>{copied ? 'Copied to Clipboard!' : 'Copy Shareable Link'}</span>
