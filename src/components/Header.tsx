@@ -1,4 +1,3 @@
-// components/Header.tsx
 'use client';
 
 import React from 'react';
@@ -8,12 +7,13 @@ import {
   ListOrdered,
   Database,
   Sparkles,
+  Swords,
   FolderDown,
   Globe,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 
-export type TabType = 'dashboard' | 'roster' | 'database' | 'archetype' | 'presets';
+export type TabType = 'dashboard' | 'roster' | 'database' | 'archetype' | 'sorter' | 'presets';
 
 interface HeaderProps {
   activeTab: TabType;
@@ -38,11 +38,18 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const tabs: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'dashboard', label: 'Dashboard & Analytics', icon: LayoutGrid },
-    { id: 'roster', label: `My Top 50 List (${activeCount})`, icon: ListOrdered },
-    { id: 'database', label: `Uma Database (${totalCount || 133})`, icon: Database },
-    { id: 'archetype', label: 'Archetype & Strategy', icon: Sparkles },
+    { id: 'roster', label: `My Top 50 Oshis (${activeCount})`, icon: ListOrdered },
+    { id: 'database', label: `All Playable Trainees (${totalCount || 133})`, icon: Database },
     ...(!isReadOnly
-      ? [{ id: 'presets' as TabType, label: 'Import / Export / Presets', icon: FolderDown }]
+      ? [
+          { id: 'sorter' as TabType, label: '🏆 Oshi Sorter', icon: Swords },
+        ]
+      : []),
+    { id: 'archetype', label: 'Strategy Center', icon: Sparkles },
+    ...(!isReadOnly
+      ? [
+          { id: 'presets' as TabType, label: 'Share & Export', icon: FolderDown },
+        ]
       : []),
   ];
 

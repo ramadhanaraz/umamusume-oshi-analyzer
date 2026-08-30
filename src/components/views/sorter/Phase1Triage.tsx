@@ -1,0 +1,154 @@
+'use client';
+
+import React from 'react';
+import { Trainee, TerminologyMode } from '../../../types/trainee';
+import { Check, ArrowRight, Heart } from 'lucide-react';
+
+interface Phase1TriageProps {
+  group: Trainee[];
+  currentPicks: string[];
+  cycle: number;
+  groupIdx: number;
+  totalGroups: number;
+  totalQualified: number;
+  mode: TerminologyMode;
+  onTogglePick: (id: string) => void;
+  onConfirmGroup: () => void;
+}
+
+export const Phase1Triage: React.FC<Phase1TriageProps> = ({
+  group,
+  currentPicks,
+  cycle,
+  groupIdx,
+  totalGroups,
+  totalQualified,
+  mode,
+  onTogglePick,
+  onConfirmGroup,
+}) => {
+  const maxPicks = group.length === 5 ? 3 : 2;
+  const gridLayoutClass =
+    group.length === 4
+      ? 'grid-cols-2 sm:grid-cols-4'
+      : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
+
+  return (
+    <div className="space-y-6 animate-fadeIn select-none">
+      {/* Group Subheader */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 uppercase tracking-wider border border-pink-500/30 flex items-center gap-1.5">
+              <Heart className="w-3 h-3 fill-pink-400 text-pink-400" />
+              <span>
+                Pass {cycle}/3 • Group {groupIdx + 1} of {totalGroups}
+              </span>
+            </span>
+            <span className="text-xs text-slate-300">
+              Pick up to <strong className="text-pink-400 font-bold">{maxPicks}</strong> faves
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Tap the trainees that catch your eye, or skip freely if indifferent.
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <span className="text-[10px] text-slate-400 uppercase tracking-widest block font-bold">
+            Faves Shortlisted
+          </span>
+          <span className="text-sm font-mono font-black text-amber-400">
+            {totalQualified} <span className="text-slate-500 text-xs">/ 60 target</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Dynamic Stretched Cards Grid with Full-Brightness Portraits */}
+      <div className={`grid ${gridLayoutClass} gap-3.5`}>
+        {group.map((trainee) => {
+          const pickIndex = currentPicks.indexOf(trainee.id);
+          const isSelected = pickIndex !== -1;
+
+          return (
+            <button
+              key={trainee.id}
+              type="button"
+              onClick={() => onTogglePick(trainee.id)}
+              className={`group relative rounded-2xl overflow-hidden border text-left transition-all duration-300 flex flex-col justify-between aspect-[3/4] p-3.5 cursor-pointer bg-[#0a0f1d] ${
+                isSelected
+                  ? 'border-pink-500 bg-pink-950/20 shadow-xl shadow-pink-500/20 scale-[1.02] ring-1 ring-pink-500'
+                  : 'border-slate-800/80 hover:border-slate-600 hover:shadow-lg hover:shadow-black/40'
+              }`}
+            >
+              {/* Character Visuals & Soft Ambient Glow */}
+              {trainee.image ? (
+                <>
+                  {/* 1. Soft Ambient Color Aura */}
+                  <img
+                    src={trainee.image}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 saturate-150 brightness-110 pointer-events-none group-hover:opacity-60 transition-opacity duration-300"
+                  />
+
+                  {/* 2. 100% Full-Brightness Front Portrait */}
+                  <img
+                    src={trainee.image}
+                    alt={trainee.nameEn}
+                    className="absolute inset-0 w-full h-full object-cover object-top z-0 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-105"
+                  />
+
+                  {/* 3. Localized Bottom Dissolve Gradient (Restricted to bottom 35% height) */}
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0a0f1d] via-[#0a0f1d]/75 to-transparent pointer-events-none z-[1]" />
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-4xl text-slate-600 bg-slate-900">
+                  {trainee.emoji || '❓'}
+                </div>
+              )}
+
+              {/* Selection Status Badge */}
+              <div className="relative z-10 flex justify-end">
+                {isSelected ? (
+                  <span className="h-6 px-2.5 rounded-lg bg-pink-500 text-white font-black text-[11px] flex items-center gap-1 shadow-md shadow-pink-500/30">
+                    <Check className="w-3.5 h-3.5 stroke-[3]" /> Fave #{pickIndex + 1}
+                  </span>
+                ) : (
+                  <span className="h-6 px-2.5 rounded-lg bg-black/60 backdrop-blur-md text-slate-300 font-bold text-[10px] border border-white/10 flex items-center group-hover:border-pink-500/40 group-hover:text-white transition-colors">
+                    Tap to Pick
+                  </span>
+                )}
+              </div>
+
+              {/* Trainee Name Vignette */}
+              <div className="relative z-10">
+                <p className="text-sm sm:text-base font-black text-white leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                  {mode === 'jp' ? trainee.nameJp || trainee.nameEn : trainee.nameEn}
+                </p>
+                {mode !== 'jp' && trainee.nameJp && (
+                  <p className="text-[11px] text-pink-300 font-semibold drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] mt-0.5">
+                    {trainee.nameJp}
+                  </p>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Advance Action Button */}
+      <button
+        type="button"
+        onClick={onConfirmGroup}
+        className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-pink-600 via-rose-600 to-pink-500 hover:from-pink-500 hover:to-rose-500 text-white font-black text-sm transition-all shadow-xl shadow-pink-600/20 flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+      >
+        <span>
+          {currentPicks.length === 0
+            ? 'Skip Group & Continue'
+            : `Confirm ${currentPicks.length} Selection${currentPicks.length > 1 ? 's' : ''} & Next`}
+        </span>
+        <ArrowRight className="w-4 h-4 stroke-[3]" />
+      </button>
+    </div>
+  );
+};

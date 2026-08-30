@@ -1,3 +1,4 @@
+// components/ViewContainer.tsx
 'use client';
 
 import React from 'react';
@@ -12,6 +13,7 @@ import { RosterView } from './views/RosterView';
 import { DatabaseView } from './views/DatabaseView';
 import { ArchetypeView } from './views/ArchetypeView';
 import { PresetsView } from './views/PresetsView';
+import { SorterView } from './views/SorterView';
 
 interface ViewContainerProps {
   // Navigation & Terminology
@@ -121,6 +123,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
           onAutoFillRemaining={onAutoFillRemaining}
           onClear={onClear}
           onGoToDatabase={() => setActiveTab('database')}
+          onGoToSorter={() => setActiveTab('sorter')}
         />
       )}
 
@@ -150,7 +153,20 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
         />
       )}
 
-      {/* 5. Presets & Backup View */}
+      {/* 5. Oshi Sorter Matchmaker View */}
+      {activeTab === 'sorter' && (
+        <SorterView
+          trainees={trainees}
+          mode={mode}
+          activeCount={activeCount}
+          onApplyRoster={(sorted50) => {
+            onReorderList(sorted50);
+            setActiveTab('dashboard');
+          }}
+        />
+      )}
+
+      {/* 6. Presets & Backup View */}
       {activeTab === 'presets' && (
         <PresetsView
           onLoadPreset={onLoadPreset}

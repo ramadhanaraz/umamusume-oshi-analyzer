@@ -24,6 +24,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import {
+  Swords,
   Trophy,
   Sparkles,
   Trash2,
@@ -50,6 +51,7 @@ interface RosterViewProps {
   onAutoFillRemaining: () => void;
   onClear: () => void;
   onGoToDatabase: () => void;
+  onGoToSorter?: () => void;
 }
 
 export type AptitudeFilterTag =
@@ -141,6 +143,7 @@ export const RosterView: React.FC<RosterViewProps> = ({
   onAutoFillRemaining,
   onClear,
   onGoToDatabase,
+  onGoToSorter,
 }) => {
   const [viewStyle, setViewStyle] = useState<'tiered' | 'continuous'>('tiered');
   const [isCompact, setIsCompact] = useState<boolean>(false);
@@ -635,21 +638,65 @@ export const RosterView: React.FC<RosterViewProps> = ({
 
       {/* 3. Trainee Cards List */}
       {activeCount === 0 ? (
-        <div className="p-12 sm:p-16 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl flex flex-col items-center justify-center text-center space-y-4">
-          <div className="text-5xl select-none">🏇</div>
-          <div className="space-y-1 max-w-md">
-            <h3 className="text-lg font-black text-white">Your Top 50 List is Empty!</h3>
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Go to the <strong className="text-slate-200">All Playable Roster</strong> tab or click quick fill to populate your favorite characters!
+        <div className="p-8 sm:p-14 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-2xl flex flex-col items-center justify-center text-center space-y-6 animate-fadeIn">
+          {/* Animated Agnes Digital Chibi Mascot */}
+          <div className="chibi-interactive relative flex flex-col items-center justify-center cursor-pointer group">
+            <div className="absolute inset-0 bg-pink-500/15 blur-2xl rounded-full pointer-events-none" />
+            <img
+              src="/chibis/AgnesDigitalChibi1.png"
+              alt="Agnes Digital - Waiting for Oshis"
+              className="chibi-avatar w-32 sm:w-44 h-auto drop-shadow-[0_8px_20px_rgba(236,72,153,0.25)] relative z-10 transition-transform duration-300 group-hover:scale-105 select-none"
+            />
+          </div>
+
+          {/* Heading */}
+          <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Your Top 50 List is Empty!
+          </h3>
+
+          {/* Agnes Digital Stylized Dialogue Bubble */}
+          <div className="max-w-lg p-4 rounded-2xl bg-slate-950/70 border border-pink-500/30 shadow-inner text-left space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-pink-600 text-white font-black text-[10px] uppercase tracking-wider">
+                Agnes Digital
+              </span>
+              <span className="text-[11px] text-pink-300 font-medium">
+                Ready to simp, Trainer-san! 🌸
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+              &ldquo;The fangirling universe is full of possibilities! Let me guide you through the{' '}
+              <strong className="text-pink-400 font-bold">Oshi Matchmaker tournament</strong> to
+              uncover your true loves, or feel free to{' '}
+              <strong className="text-amber-300 font-bold">hand-pick them directly</strong> from
+              the roster!&rdquo;
             </p>
           </div>
-          <button
-            onClick={onGoToDatabase}
-            className="mt-2 flex items-center gap-2 px-6 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shadow-lg shadow-pink-600/30 transition-all active:scale-95"
-          >
-            <Search className="w-4 h-4" />
-            <span>Browse All Playable Roster</span>
-          </button>
+
+          {/* Dual Action Choices */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full max-w-md pt-1">
+            {/* Primary Highlighted Button: Oshi Sorter */}
+            {onGoToSorter && (
+              <button
+                type="button"
+                onClick={onGoToSorter}
+                className="w-full sm:w-auto flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-600 via-rose-600 to-amber-500 hover:from-pink-500 hover:to-amber-400 text-white font-black text-xs sm:text-sm transition-all shadow-xl shadow-pink-600/30 flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+              >
+                <Swords className="w-4 h-4 fill-white text-white stroke-[2.5]" />
+                <span className="drop-shadow-sm">Rank with Oshi Sorter</span>
+              </button>
+            )}
+
+            {/* Secondary Button: Manual Database Browse */}
+            <button
+              type="button"
+              onClick={onGoToDatabase}
+              className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md cursor-pointer"
+            >
+              <Search className="w-4 h-4 text-slate-400" />
+              <span>Browse All Playable</span>
+            </button>
+          </div>
         </div>
       ) : (
         <DndContext
