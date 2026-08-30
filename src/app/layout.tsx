@@ -68,10 +68,6 @@ export const metadata: Metadata = {
       'Match and rank your ultimate 50 Oshis with Agnes Digital! Analyze your running style distribution and export high-res profile cards.',
     images: ['/og-image.png'],
   },
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
 };
 
 export default function RootLayout({
