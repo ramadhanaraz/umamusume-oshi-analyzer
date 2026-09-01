@@ -1,46 +1,37 @@
-// components/ViewContainer.tsx
+// ViewContainer.tsx
 'use client';
 
 import React from 'react';
-import { Trainee, TerminologyMode, WeightingMode, AptitudeFilterMode } from '../types/trainee';
-import { OshiSlot, AnalysisResult } from '../utils/calculator';
 import { TabType } from './Header';
-import { HeroArchetype } from './HeroArchetype';
-import { SettingsBar } from './SettingsBar';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
-import { TopFiveOshis } from './TopFiveOshis';
 import { RosterView } from './views/RosterView';
 import { DatabaseView } from './views/DatabaseView';
 import { ArchetypeView } from './views/ArchetypeView';
-import { PresetsView } from './views/PresetsView';
 import { SorterView } from './views/SorterView';
+import { PresetsView } from './views/PresetsView';
+import { Trainee, TerminologyMode, WeightingMode, AptitudeFilterMode } from '../types/trainee';
+import { OshiSlot, AnalysisResult } from '../utils/calculator';
 
 interface ViewContainerProps {
-  // Navigation & Terminology
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   mode: TerminologyMode;
-
-  // Settings & Analysis
+  isSharedPreview: boolean;
   weightMode: WeightingMode;
-  setWeightMode: (w: WeightingMode) => void;
+  setWeightMode: (m: WeightingMode) => void;
   filterMode: AptitudeFilterMode;
-  setFilterMode: (f: AptitudeFilterMode) => void;
+  setFilterMode: (m: AptitudeFilterMode) => void;
   analysis: AnalysisResult;
-
-  // Roster & Data
   slots: OshiSlot[];
   activeTrainees: { rank: number; trainee: Trainee }[];
   activeCount: number;
   trainees: Trainee[];
-
-  // User Actions
   onSelectSlot: (rank: number) => void;
   onOpenActionMenu: (rank: number) => void;
   onOpenModal: (rank: number) => void;
   onRemove: (rank: number) => void;
-  onReorderList: (trainees: Trainee[]) => void;
-  onLoadPreset: (presetId: 'spica' | 'newEra' | 'new-era' | 'random') => void;
+  onReorderList: (newTrainees: Trainee[]) => void;
+  onLoadPreset: (type: 'spica' | 'newEra' | 'random') => void;
   onAutoFillRemaining: () => void;
   onClear: () => void;
   onAddTrainee: (trainee: Trainee) => void;
@@ -48,13 +39,13 @@ interface ViewContainerProps {
   onShare: () => void;
   onExportCSV: () => void;
   copied: boolean;
-  isSharedPreview?: boolean;
 }
 
 export const ViewContainer: React.FC<ViewContainerProps> = ({
   activeTab,
   setActiveTab,
   mode,
+  isSharedPreview,
   weightMode,
   setWeightMode,
   filterMode,
@@ -66,7 +57,6 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
   trainees,
   onSelectSlot,
   onOpenActionMenu,
-  onOpenModal,
   onRemove,
   onReorderList,
   onLoadPreset,
@@ -77,103 +67,75 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
   onShare,
   onExportCSV,
   copied,
-  isSharedPreview = false,
 }) => {
+  const activeTraineeRanks = activeTrainees.reduce<Record<string, number>>((acc, curr) => {
+    acc[curr.trainee.id] = curr.rank;
+    return acc;
+  }, {});
+
   return (
-    <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-      {/* 1. Dashboard View */}
+    <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
       {activeTab === 'dashboard' && (
-        <div className="space-y-6 animate-fadeIn">
-          <HeroArchetype
-            archetype={analysis.archetype}
-            activeCount={activeCount}
-            isReadOnly={isSharedPreview}
-            onFillMore={() => setActiveTab('roster')}
-          />
-          <TopFiveOshis
-            slots={slots}
-            mode={mode}
-            isReadOnly={isSharedPreview}
-            onSelectSlot={onSelectSlot}
-            onOpenActionMenu={onOpenActionMenu}
-            onManageTop50={() => setActiveTab('roster')}
-          />
-          <SettingsBar
-            weightMode={weightMode}
-            setWeightMode={setWeightMode}
-            filterMode={filterMode}
-            setFilterMode={setFilterMode}
-          />
-          <AnalyticsDashboard mode={mode} analysis={analysis} />
-        </div>
+        <AnalyticsDashboard
+          analysis={analysis}
+          mode={mode}
+        />
       )}
 
-      {/* 2. Roster View */}
       {activeTab === 'roster' && (
         <RosterView
-          activeTrainees={activeTrainees}
+          slots={slots}
           activeCount={activeCount}
           mode={mode}
           isReadOnly={isSharedPreview}
+          copied={copied}
+          onSelectSlot={onSelectSlot}
           onOpenActionMenu={onOpenActionMenu}
-          onOpenModal={onOpenModal}
           onRemove={onRemove}
           onReorderList={onReorderList}
-          onLoadPreset={onLoadPreset}
           onAutoFillRemaining={onAutoFillRemaining}
           onClear={onClear}
-          onGoToDatabase={() => setActiveTab('database')}
-          onGoToSorter={() => setActiveTab('sorter')}
+          onShare={onShare}
+          onExportCSV={onExportCSV}
+          onOpenExportCard={onOpenExportCard}
         />
       )}
 
-      {/* 3. Database View */}
       {activeTab === 'database' && (
         <DatabaseView
           trainees={trainees}
-          activeTraineeIds={activeTrainees.map((s) => s.trainee.id)}
-          activeTraineeRanks={activeTrainees.reduce<Record<string, number>>((acc, curr) => {
-            acc[curr.trainee.id] = curr.rank;
-            return acc;
-          }, {})}
-          onAddTrainee={onAddTrainee}
-          onRemoveTrainee={onRemove}
+          activeTraineeRanks={activeTraineeRanks}
           mode={mode}
-          isReadOnly={isSharedPreview}
-          maxSlots={50}
+          onAddTrainee={onAddTrainee}
         />
       )}
 
-      {/* 4. Archetype Details View */}
       {activeTab === 'archetype' && (
         <ArchetypeView
-          archetype={analysis.archetype}
+          analysis={analysis}
+          activeTrainees={activeTrainees}
           mode={mode}
-          styleRaw={analysis.styleRaw}
         />
       )}
 
-      {/* 5. Oshi Sorter Matchmaker View */}
       {activeTab === 'sorter' && (
         <SorterView
           trainees={trainees}
           mode={mode}
           activeCount={activeCount}
-          onApplyRoster={(sorted50) => {
-            onReorderList(sorted50);
-            setActiveTab('dashboard');
+          onApplyRoster={(sortedList) => {
+            onReorderList(sortedList);
+            setActiveTab('roster');
           }}
         />
       )}
 
-      {/* 6. Presets & Backup View */}
       {activeTab === 'presets' && (
         <PresetsView
-          onLoadPreset={onLoadPreset}
-          onOpenExportCard={onOpenExportCard}
-          onShare={onShare}
-          onExportCSV={onExportCSV}
-          copied={copied}
+          onLoadPreset={(type) => {
+            onLoadPreset(type);
+            setActiveTab('roster');
+          }}
         />
       )}
     </div>

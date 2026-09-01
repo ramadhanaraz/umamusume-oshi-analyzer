@@ -1,55 +1,79 @@
 // app/page.tsx
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Eye, ArrowLeft, Save } from 'lucide-react';
-import { TRAINEES } from '../data/trainees';
-import { Trainee, TerminologyMode } from '../types/trainee';
+import { useSearchParams } from 'next/navigation';
+import { traineeRepository } from '../repositories/traineeRepository';
 import { calculateAnalysis } from '../utils/calculator';
-import { useRosterHydration } from '../hooks/useRosterHydration';
-import { Header, TabType } from '../components/Header';
+import { useRosterStore } from '../stores/useRosterStore';
+import { useSettingsStore } from '../stores/useSettingsStore';
+import { useUIStore } from '../stores/useUIStore';
+import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { ViewContainer } from '../components/ViewContainer';
 import { ModalContainer } from '../components/ModalContainer';
-
-const TOTAL_SLOTS = 50;
+import { Trainee } from '../types/trainee';
 
 function HomeContent() {
-  // Hydration Hook (Manages slots, calculations, LocalStorage & URL sharing)
+  const searchParams = useSearchParams();
+
   const {
     slots,
-    setSlots,
-    weightMode,
-    setWeightMode,
-    filterMode,
-    setFilterMode,
     isSharedPreview,
     copied,
-    exitPreview,
+    loadRosterFromStorage,
+    loadRosterFromUrlParam,
+    exitSharedPreview,
     confirmImportShared,
     handleShare,
-  } = useRosterHydration();
+    selectTraineeForSlot,
+    addFirstEmpty,
+    removeByRank,
+    reorderSlots,
+    reorderList,
+    clearRoster,
+    autoFillRemaining,
+    loadPreset,
+    exportCSV,
+  } = useRosterStore();
 
-  // Navigation & Terminology States
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const [mode, setMode] = useState<TerminologyMode>('global');
+  const { weightMode, setWeightMode, filterMode, setFilterMode, mode, setMode, loadSavedSettings } =
+    useSettingsStore();
 
-  // Modal Open / Focus States
-  const [activeSlotRank, setActiveSlotRank] = useState<number | null>(null);
-  const [actionMenuRank, setActionMenuRank] = useState<number | null>(null);
-  const [openedFromActionMenu, setOpenedFromActionMenu] = useState(false);
-  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
-  const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
-  const [isExportOpen, setIsExportOpen] = useState(false);
+  const {
+    activeTab,
+    setActiveTab,
+    activeSlotRank,
+    actionMenuRank,
+    openedFromActionMenu,
+    isClearModalOpen,
+    isImportConfirmOpen,
+    isExportOpen,
+    setActiveSlotRank,
+    setActionMenuRank,
+    setOpenedFromActionMenu,
+    setIsClearModalOpen,
+    setIsImportConfirmOpen,
+    setIsExportOpen,
+  } = useUIStore();
 
-  // Safety: Reset tab to 'dashboard' if viewing a shared link while on 'presets'
+  const allTrainees = traineeRepository.getAllTraineesSync();
+
   useEffect(() => {
-    if (isSharedPreview && activeTab === 'presets') {
-      setActiveTab('dashboard');
+    loadSavedSettings();
+    const sharedParam = searchParams.get('roster') || searchParams.get('r');
+    if (sharedParam) {
+      const decodedSettings = loadRosterFromUrlParam(sharedParam);
+      if (decodedSettings) {
+        if (decodedSettings.weightMode) setWeightMode(decodedSettings.weightMode);
+        if (decodedSettings.filterMode) setFilterMode(decodedSettings.filterMode);
+      }
+    } else {
+      loadRosterFromStorage();
     }
-  }, [isSharedPreview, activeTab]);
+  }, [searchParams, loadSavedSettings, loadRosterFromUrlParam, loadRosterFromStorage, setWeightMode, setFilterMode]);
 
-  // Derived Roster & Analysis States
   const activeTrainees = slots.filter((s): s is { rank: number; trainee: Trainee } => s.trainee !== null);
   const activeCount = activeTrainees.length;
   const analysis = calculateAnalysis(slots, mode, weightMode, filterMode);
@@ -61,116 +85,9 @@ function HomeContent() {
 
   const activeMenuTrainee = actionMenuRank ? slots[actionMenuRank - 1]?.trainee : null;
 
-  // Handlers
-  const handleSelectTrainee = (trainee: Trainee) => {
-    if (!activeSlotRank) return;
-    const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    const existingIndex = current.findIndex((t) => t.id === trainee.id);
-
-    if (existingIndex !== -1) {
-      if (activeSlotRank <= current.length) {
-        const temp = current[activeSlotRank - 1];
-        current[activeSlotRank - 1] = current[existingIndex];
-        current[existingIndex] = temp;
-      } else {
-        current.splice(existingIndex, 1);
-        current.push(trainee);
-      }
-    } else {
-      if (activeSlotRank <= current.length) {
-        current[activeSlotRank - 1] = trainee;
-      } else {
-        current.push(trainee);
-      }
-    }
-
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
-    setActiveSlotRank(null);
-    setActionMenuRank(null);
-    setOpenedFromActionMenu(false);
-  };
-
-  const handleAddFirstEmpty = (trainee: Trainee) => {
-    if (activeCount >= TOTAL_SLOTS) return alert('Your Top 50 roster is full!');
-    if (activeTraineeRanks[trainee.id] !== undefined) {
-      return alert(`${trainee.nameEn} is already in your Top 50 at Rank #${activeTraineeRanks[trainee.id]}!`);
-    }
-    const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    current.push(trainee);
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
-  };
-
-  const handleRemove = (rank: number) => {
-    const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    current.splice(rank - 1, 1);
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
-  };
-
-  const handleReorder = (sourceRank: number, targetRank: number) => {
-    if (sourceRank === targetRank || targetRank < 1 || targetRank > activeCount) return;
-    const current = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    const [moved] = current.splice(sourceRank - 1, 1);
-    current.splice(targetRank - 1, 0, moved);
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: current[i] || null })));
-  };
-
-  const handleReorderList = (newTrainees: Trainee[]) => {
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: newTrainees[i] || null })));
-  };
-
-  const handleConfirmClear = () => {
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: null })));
-    setIsClearModalOpen(false);
-  };
-
-  const handleAutoFillRemaining = () => {
-    const currentList = slots.filter((s) => s.trainee !== null).map((s) => s.trainee!);
-    if (currentList.length >= TOTAL_SLOTS) return;
-
-    const chosenIds = new Set(currentList.map((t) => t.id));
-    const available = TRAINEES.filter((t) => !chosenIds.has(t.id)).sort(() => 0.5 - Math.random());
-    const needed = TOTAL_SLOTS - currentList.length;
-    const toAdd = available.slice(0, needed);
-    const fullList = [...currentList, ...toAdd];
-
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: fullList[i] || null })));
-  };
-
-  const handleLoadPreset = (type: 'spica' | 'newEra' | 'new-era' | 'random') => {
-    let selected: Trainee[] = [];
-    if (type === 'newEra' || type === 'new-era') {
-      const ids = ['epiphaneia', 'fusaichi-pandora', 'rulership', 'curren-bouquetdor', 'gentildonna', 'red-desire', 'daring-heart', 'admire-groove', 'lucky-lilac', 'north-flight', 'victoire-pisa', 'loves-only-you', 'almond-eye', 'sounds-of-earth', 'kiseki', 'bubble-gum-fellow', 'stay-gold', 'nakayama-festa', 'dream-journey', 'buena-vista'];
-      selected = TRAINEES.filter((t) => ids.includes(t.id));
-    } else if (type === 'spica') {
-      const ids = ['special-week', 'silence-suzuka', 'tokai-teio', 'vodka', 'daiwa-scarlet', 'gold-ship', 'mejiro-mcqueen', 'symboli-rudolf', 'air-groove', 'narita-brian', 'rice-shower', 'grass-wonder', 'el-condor-pasa', 'taiki-shuttle', 'oguri-cap', 'twin-turbo', 'nice-nature', 'king-halo', 'winning-ticket', 'agnes-tachyon'];
-      selected = TRAINEES.filter((t) => ids.includes(t.id));
-    } else {
-      selected = [...TRAINEES].sort(() => 0.5 - Math.random()).slice(0, TOTAL_SLOTS);
-    }
-    setSlots(Array.from({ length: TOTAL_SLOTS }, (_, i) => ({ rank: i + 1, trainee: selected[i] || null })));
-  };
-
-  const handleExportCSV = () => {
-    const headers = ['Rank', 'Name (EN)', 'Name (JP)', 'Turf', 'Dirt', 'Short', 'Mile', 'Medium', 'Long', 'Front', 'Pace', 'Late', 'End'];
-    const rows = activeTrainees.map((s) => [
-      s.rank, `"${s.trainee.nameEn}"`, `"${s.trainee.nameJp}"`,
-      s.trainee.surface.turf, s.trainee.surface.dirt,
-      s.trainee.distance.short, s.trainee.distance.mile,
-      s.trainee.distance.medium, s.trainee.distance.long,
-      s.trainee.style.front, s.trainee.style.pace,
-      s.trainee.style.late, s.trainee.style.end,
-    ]);
-    const link = document.createElement('a');
-    link.href = encodeURI('data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n'));
-    link.download = 'umamusume_top50_oshis.csv';
-    link.click();
-  };
-
   return (
     <main className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans">
-      {/* Unified Sticky App Header & Banner Container */}
       <div className="sticky top-0 z-40 w-full flex flex-col shadow-xl bg-[#070b16]/95 backdrop-blur-xl border-b border-slate-800/80">
-        {/* Shared Link Banner */}
         {isSharedPreview && (
           <div className="w-full bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-b border-amber-500/30 px-4 py-2.5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-fadeIn select-none">
             <div className="flex items-center gap-2.5 text-amber-300">
@@ -182,7 +99,7 @@ function HomeContent() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={exitPreview}
+                onClick={exitSharedPreview}
                 className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -200,7 +117,6 @@ function HomeContent() {
           </div>
         )}
 
-        {/* Global Header */}
         <Header
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -208,12 +124,11 @@ function HomeContent() {
           isReadOnly={isSharedPreview}
           setMode={setMode}
           activeCount={activeCount}
-          totalCount={TRAINEES.length}
+          totalCount={allTrainees.length}
           onOpenExport={() => setIsExportOpen(true)}
         />
       </div>
 
-      {/* Active Tab Views */}
       <ViewContainer
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -227,7 +142,7 @@ function HomeContent() {
         slots={slots}
         activeTrainees={activeTrainees}
         activeCount={activeCount}
-        trainees={TRAINEES}
+        trainees={allTrainees}
         onSelectSlot={(r) => {
           setOpenedFromActionMenu(false);
           setActiveSlotRank(r);
@@ -237,24 +152,22 @@ function HomeContent() {
           setOpenedFromActionMenu(false);
           setActiveSlotRank(r);
         }}
-        onRemove={handleRemove}
-        onReorderList={handleReorderList}
-        onLoadPreset={handleLoadPreset}
-        onAutoFillRemaining={handleAutoFillRemaining}
+        onRemove={removeByRank}
+        onReorderList={reorderList}
+        onLoadPreset={loadPreset}
+        onAutoFillRemaining={autoFillRemaining}
         onClear={() => activeCount > 0 && setIsClearModalOpen(true)}
-        onAddTrainee={handleAddFirstEmpty}
+        onAddTrainee={addFirstEmpty}
         onOpenExportCard={() => setIsExportOpen(true)}
-        onShare={handleShare}
-        onExportCSV={handleExportCSV}
+        onShare={() => handleShare(weightMode, filterMode)}
+        onExportCSV={exportCSV}
         copied={copied}
       />
 
-      {/* Global Footer */}
       <Footer />
 
-      {/* Modals Suite */}
       <ModalContainer
-        trainees={TRAINEES}
+        trainees={allTrainees}
         slots={slots}
         activeCount={activeCount}
         activeTraineeRanks={activeTraineeRanks}
@@ -266,7 +179,14 @@ function HomeContent() {
         onCloseExport={() => setIsExportOpen(false)}
         activeSlotRank={activeSlotRank}
         openedFromActionMenu={openedFromActionMenu}
-        onSelectTrainee={handleSelectTrainee}
+        onSelectTrainee={(t) => {
+          if (activeSlotRank) {
+            selectTraineeForSlot(activeSlotRank, t);
+            setActiveSlotRank(null);
+            setActionMenuRank(null);
+            setOpenedFromActionMenu(false);
+          }
+        }}
         onCloseTraineeModal={() => {
           setActiveSlotRank(null);
           setOpenedFromActionMenu(false);
@@ -284,11 +204,14 @@ function HomeContent() {
           setActiveSlotRank(r);
           setOpenedFromActionMenu(true);
         }}
-        onMoveToRank={handleReorder}
-        onRemoveTrainee={handleRemove}
+        onMoveToRank={reorderSlots}
+        onRemoveTrainee={removeByRank}
         isClearModalOpen={isClearModalOpen}
         onCloseClearModal={() => setIsClearModalOpen(false)}
-        onConfirmClear={handleConfirmClear}
+        onConfirmClear={() => {
+          clearRoster();
+          setIsClearModalOpen(false);
+        }}
         isImportConfirmOpen={isImportConfirmOpen}
         onCloseImportConfirm={() => setIsImportConfirmOpen(false)}
         onConfirmImportShared={() => {

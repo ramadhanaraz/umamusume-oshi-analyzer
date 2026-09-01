@@ -79,14 +79,11 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
         isOpen={isExportOpen}
         onClose={onCloseExport}
         slots={slots}
+        activeCount={activeCount}
+        analysis={analysis}
         mode={mode}
         weightMode={weightMode}
         filterMode={filterMode}
-        archetype={analysis?.archetype}
-        stylePct={analysis?.stylePct}
-        distPct={analysis?.distPct}
-        strategyScores={analysis?.styleRaw}
-        distanceScores={analysis?.distanceRaw}
       />
 
       {activeSlotRank !== null && (
