@@ -1,67 +1,871 @@
 'use client';
 
-import React from 'react';
-import { Trainee, TerminologyMode } from '../../types/trainee';
-import { OshiSlot } from '../../utils/calculator';
-import { RosterHeaderControls } from './roster/RosterHeaderControls';
-import { RosterGrid } from './roster/RosterGrid';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Trainee, TerminologyMode, TERMINOLOGY } from '../../types/trainee';
+import { OshiCard } from '../OshiCard';
+import {
+  DndContext,
+  closestCenter,
+  pointerWithin,
+  CollisionDetection,
+  MeasuringStrategy,
+  MouseSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverEvent,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import {
+  Swords,
+  Trophy,
+  Sparkles,
+  Trash2,
+  Search,
+  Plus,
+  Layers,
+  List,
+  Maximize2,
+  Minimize2,
+  Wand2,
+  X,
+} from 'lucide-react';
 
 interface RosterViewProps {
-  slots: OshiSlot[];
+  activeTrainees: { rank: number; trainee: Trainee }[];
   activeCount: number;
   mode: TerminologyMode;
   isReadOnly?: boolean;
-  copied?: boolean;
-  onSelectSlot: (rank: number) => void;
   onOpenActionMenu: (rank: number) => void;
+  onOpenModal: (rank: number) => void;
   onRemove: (rank: number) => void;
-  onReorderList: (newTrainees: Trainee[]) => void;
+  onReorderList: (reorderedTrainees: Trainee[]) => void;
+  onLoadPreset: (type: 'random') => void;
   onAutoFillRemaining: () => void;
   onClear: () => void;
-  onShare: () => void;
-  onExportCSV: () => void;
-  onOpenExportCard: () => void;
+  onGoToDatabase: () => void;
+  onGoToSorter?: () => void;
 }
 
+export type AptitudeFilterTag =
+  | 'turf'
+  | 'dirt'
+  | 'front'
+  | 'pace'
+  | 'late'
+  | 'end'
+  | 'short'
+  | 'mile'
+  | 'medium'
+  | 'long';
+
+interface TierDefinition {
+  id: string;
+  name: string;
+  minRank: number;
+  maxRank: number;
+  multiplier: string;
+  badgeEmoji: string;
+  accentBorder: string;
+  headerBg: string;
+  textColor: string;
+  pillBg: string;
+}
+
+const TIERS: TierDefinition[] = [
+  {
+    id: 'tier-1',
+    name: 'I was born for dem Oshis',
+    minRank: 1,
+    maxRank: 5,
+    multiplier: '4.0× Multiplier',
+    badgeEmoji: '👑',
+    accentBorder: 'border-amber-500/30',
+    headerBg: 'bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent',
+    textColor: 'text-amber-300',
+    pillBg: 'bg-amber-400/10 text-amber-300 border-amber-500/30',
+  },
+  {
+    id: 'tier-2',
+    name: 'Beloved Ones',
+    minRank: 6,
+    maxRank: 15,
+    multiplier: '2.5× Multiplier',
+    badgeEmoji: '💖',
+    accentBorder: 'border-rose-500/30',
+    headerBg: 'bg-gradient-to-r from-rose-500/15 via-pink-500/10 to-transparent',
+    textColor: 'text-rose-300',
+    pillBg: 'bg-rose-400/10 text-rose-300 border-rose-500/30',
+  },
+  {
+    id: 'tier-3',
+    name: 'Oshi Pick',
+    minRank: 16,
+    maxRank: 30,
+    multiplier: '1.5× Multiplier',
+    badgeEmoji: '⭐',
+    accentBorder: 'border-purple-500/30',
+    headerBg: 'bg-gradient-to-r from-purple-500/15 via-indigo-500/10 to-transparent',
+    textColor: 'text-purple-300',
+    pillBg: 'bg-purple-400/10 text-purple-300 border-purple-500/30',
+  },
+  {
+    id: 'tier-4',
+    name: 'I Like Them Equally',
+    minRank: 31,
+    maxRank: 50,
+    multiplier: '1.0× Multiplier',
+    badgeEmoji: '✨',
+    accentBorder: 'border-slate-700/60',
+    headerBg: 'bg-gradient-to-r from-slate-800/40 via-slate-900/30 to-transparent',
+    textColor: 'text-slate-300',
+    pillBg: 'bg-slate-800 text-slate-300 border-slate-700',
+  },
+];
+
 export const RosterView: React.FC<RosterViewProps> = ({
-  slots,
+  activeTrainees,
   activeCount,
   mode,
   isReadOnly = false,
-  copied = false,
-  onSelectSlot,
   onOpenActionMenu,
+  onOpenModal,
   onRemove,
   onReorderList,
+  onLoadPreset,
   onAutoFillRemaining,
   onClear,
-  onShare,
-  onExportCSV,
-  onOpenExportCard,
+  onGoToDatabase,
+  onGoToSorter,
 }) => {
-  return (
-    <div className="space-y-6 animate-fadeIn">
-      <RosterHeaderControls
-        activeCount={activeCount}
-        totalSlots={50}
-        isReadOnly={isReadOnly}
-        copied={copied}
-        onAutoFill={onAutoFillRemaining}
-        onClear={onClear}
-        onShare={onShare}
-        onExportCSV={onExportCSV}
-        onOpenExportCard={onOpenExportCard}
-      />
+  const [viewStyle, setViewStyle] = useState<'tiered' | 'continuous'>('tiered');
+  const [isCompact, setIsCompact] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedFilters, setSelectedFilters] = useState<AptitudeFilterTag[]>([]);
 
-      <RosterGrid
-        slots={slots}
-        mode={mode}
-        isReadOnly={isReadOnly}
-        onSelectSlot={onSelectSlot}
-        onOpenActionMenu={onOpenActionMenu}
-        onRemove={onRemove}
-        onReorderList={onReorderList}
-      />
+  const [orderedTrainees, setOrderedTrainees] = useState<Trainee[]>(() =>
+    activeTrainees.map((s) => s.trainee)
+  );
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  const isFiltering = searchQuery.trim() !== '' || selectedFilters.length > 0;
+  const dict = TERMINOLOGY[mode] || TERMINOLOGY.global;
+
+  const fullTraineeList = useMemo(() => activeTrainees.map((s) => s.trainee), [activeTrainees]);
+
+  const isAptitudeViable = (tag: AptitudeFilterTag, trainee: Trainee): boolean => {
+    switch (tag) {
+      case 'turf':
+        return ['S', 'A'].includes(trainee.surface.turf);
+      case 'dirt':
+        return ['S', 'A', 'B'].includes(trainee.surface.dirt);
+      case 'front':
+        return ['S', 'A'].includes(trainee.style.front);
+      case 'pace':
+        return ['S', 'A'].includes(trainee.style.pace);
+      case 'late':
+        return ['S', 'A'].includes(trainee.style.late);
+      case 'end':
+        return ['S', 'A'].includes(trainee.style.end);
+      case 'short':
+        return ['S', 'A'].includes(trainee.distance.short);
+      case 'mile':
+        return ['S', 'A'].includes(trainee.distance.mile);
+      case 'medium':
+        return ['S', 'A'].includes(trainee.distance.medium);
+      case 'long':
+        return ['S', 'A'].includes(trainee.distance.long);
+      default:
+        return true;
+    }
+  };
+
+  const baseFilteredTrainees = useMemo(() => {
+    return activeTrainees.filter(({ trainee }) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchEn = trainee.nameEn?.toLowerCase().includes(q);
+        const matchJp = trainee.nameJp?.includes(q);
+        if (!matchEn && !matchJp) return false;
+      }
+
+      if (selectedFilters.length === 0) return true;
+
+      const surfaceFilters = selectedFilters.filter((f) => ['turf', 'dirt'].includes(f));
+      const styleFilters = selectedFilters.filter((f) => ['front', 'pace', 'late', 'end'].includes(f));
+      const distanceFilters = selectedFilters.filter((f) => ['short', 'mile', 'medium', 'long'].includes(f));
+
+      if (surfaceFilters.length > 0) {
+        const matchSurface = surfaceFilters.some((tag) => isAptitudeViable(tag, trainee));
+        if (!matchSurface) return false;
+      }
+
+      if (styleFilters.length > 0) {
+        const matchStyle = styleFilters.some((tag) => isAptitudeViable(tag, trainee));
+        if (!matchStyle) return false;
+      }
+
+      if (distanceFilters.length > 0) {
+        const matchDistance = distanceFilters.some((tag) => isAptitudeViable(tag, trainee));
+        if (!matchDistance) return false;
+      }
+
+      return true;
+    });
+  }, [activeTrainees, searchQuery, selectedFilters]);
+
+  const filteredMasterIndices = useMemo(() => {
+    return baseFilteredTrainees.map(({ rank }) => rank - 1);
+  }, [baseFilteredTrainees]);
+
+  useEffect(() => {
+    if (!activeDragId) {
+      setOrderedTrainees(baseFilteredTrainees.map((item) => item.trainee));
+    }
+  }, [baseFilteredTrainees, activeDragId]);
+
+  // Only use MouseSensor for drag-and-drop, requiring a 5px drag distance to avoid accidental drags on clicks
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: {
+      distance: 5,
+    },
+  });
+
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+
+  useEffect(() => {
+    const checkViewport = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
+
+  // Pass mouseSensor on desktop; empty array on mobile screens
+  const sensors = useSensors(mouseSensor);
+
+  const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
+    const pointerCollisions = pointerWithin(args);
+    return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
+  }, []);
+
+  const handleToggleFilter = (tag: AptitudeFilterTag) => {
+    setSelectedFilters((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleClearFilters = () => {
+    setSelectedFilters([]);
+    setSearchQuery('');
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    if (isReadOnly) return;
+    setActiveDragId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    if (isReadOnly) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setOrderedTrainees((prev) => {
+      const oldIndex = prev.findIndex((t) => t.id === active.id);
+      const newIndex = prev.findIndex((t) => t.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        return arrayMove(prev, oldIndex, newIndex);
+      }
+      return prev;
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    if (isReadOnly) return;
+    const { active, over } = event;
+    setActiveDragId(null);
+
+    let finalOrder = orderedTrainees;
+    if (over && active.id !== over.id) {
+      const oldIndex = orderedTrainees.findIndex((t) => t.id === active.id);
+      const newIndex = orderedTrainees.findIndex((t) => t.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        finalOrder = arrayMove(orderedTrainees, oldIndex, newIndex);
+      }
+    }
+
+    if (!isFiltering) {
+      onReorderList(finalOrder);
+    } else {
+      const updatedMaster = [...fullTraineeList];
+      filteredMasterIndices.forEach((masterIdx, i) => {
+        if (finalOrder[i]) {
+          updatedMaster[masterIdx] = finalOrder[i];
+        }
+      });
+      onReorderList(updatedMaster);
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragId(null);
+    setOrderedTrainees(baseFilteredTrainees.map((item) => item.trainee));
+  };
+
+  const handleMoveToRank = useCallback(
+    (sourceRank: number, targetRank: number) => {
+      if (
+        isReadOnly ||
+        targetRank < 1 ||
+        targetRank > activeCount ||
+        sourceRank === targetRank ||
+        sourceRank < 1 ||
+        sourceRank > activeCount
+      ) {
+        return;
+      }
+
+      const sourceIndex = sourceRank - 1;
+      const targetIndex = targetRank - 1;
+
+      if (!isFiltering) {
+        const newOrder = arrayMove(orderedTrainees, sourceIndex, targetIndex);
+        setOrderedTrainees(newOrder);
+        onReorderList(newOrder);
+      } else {
+        const masterSourceIdx = filteredMasterIndices[sourceIndex];
+        const masterTargetIdx = filteredMasterIndices[targetIndex] ?? (targetRank - 1);
+        const updatedMaster = arrayMove(fullTraineeList, masterSourceIdx, masterTargetIdx);
+        onReorderList(updatedMaster);
+      }
+    },
+    [activeCount, isFiltering, isReadOnly, orderedTrainees, onReorderList, filteredMasterIndices, fullTraineeList]
+  );
+
+  const renderedItems = useMemo(() => {
+    const source = orderedTrainees.length > 0
+      ? orderedTrainees
+      : baseFilteredTrainees.map((item) => item.trainee);
+
+    return source.map((trainee, index) => {
+      const rank = isFiltering
+        ? filteredMasterIndices[index] !== undefined
+          ? filteredMasterIndices[index] + 1
+          : index + 1
+        : index + 1;
+      return { rank, trainee };
+    });
+  }, [orderedTrainees, baseFilteredTrainees, isFiltering, filteredMasterIndices]);
+
+  const activeOverlayData = useMemo(() => {
+    if (!activeDragId) return null;
+    const currentIndex = orderedTrainees.findIndex((t) => t.id === activeDragId);
+    if (currentIndex === -1) return null;
+
+    const trainee = orderedTrainees[currentIndex];
+    const liveRank = isFiltering
+      ? filteredMasterIndices[currentIndex] + 1
+      : currentIndex + 1;
+
+    return { rank: liveRank, trainee };
+  }, [activeDragId, orderedTrainees, isFiltering, filteredMasterIndices]);
+
+  return (
+    <div className="space-y-4 w-full select-none">
+      {/* 1. Header Toolbar */}
+      <div className="flex flex-wrap justify-between items-center gap-3 bg-[#0e1424] p-4 sm:p-5 rounded-3xl border border-slate-800/90 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-400 shadow-inner shrink-0">
+            <Trophy className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
+              Top 50 Oshi Ranking List
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isReadOnly
+                ? 'Viewing shared roster in read-only mode • Save to personalize'
+                : isFiltering
+                ? 'Sorting filtered items within their current ranks'
+                : isMobileScreen
+                ? 'Tap rank numbers or card menu to jump positions'
+                : 'Drag any card or click rank numbers to jump positions'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {isReadOnly && (
+            <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold text-xs flex items-center gap-1.5 shadow-sm">
+              <span>🔒</span>
+              <span>Read Only</span>
+            </div>
+          )}
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              onClick={() => setViewStyle('tiered')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all text-xs ${
+                viewStyle === 'tiered'
+                  ? 'bg-pink-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Tiered View"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Tiered</span>
+            </button>
+            <button
+              onClick={() => setViewStyle('continuous')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all text-xs ${
+                viewStyle === 'continuous'
+                  ? 'bg-pink-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Continuous View"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Continuous</span>
+            </button>
+          </div>
+
+          {/* Density Toggle */}
+          <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              onClick={() => setIsCompact(false)}
+              className={`p-1.5 rounded-lg font-bold transition-all ${
+                !isCompact ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Expanded Detailed View"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setIsCompact(true)}
+              className={`p-1.5 rounded-lg font-bold transition-all ${
+                isCompact ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Compact View"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Mutation Buttons (Hidden in Read-Only Mode) */}
+          {!isReadOnly && (
+            <>
+              {activeCount > 0 && activeCount < 50 && (
+                <button
+                  onClick={onAutoFillRemaining}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all"
+                >
+                  <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Fill Rest ({50 - activeCount})</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => onLoadPreset('random')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition-all"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden md:inline">Random 50</span>
+              </button>
+
+              <button
+                onClick={onClear}
+                disabled={activeCount === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-bold transition-all disabled:opacity-30"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Seamless Sticky Filter Bar (Mobile Optimized) */}
+      {activeCount > 0 && (
+        <div
+          className={`sticky z-30 py-1.5 sm:py-3 pb-2 sm:pb-5 bg-[#070b16]/95 backdrop-blur-md shadow-[0_12px_24px_-10px_rgba(7,11,22,0.95)] transition-all ${
+            isReadOnly
+              ? 'top-[225px] sm:top-[168px]'
+              : 'top-[185px] sm:top-[116px] md:top-[120px]'
+          }`}
+        >
+          <div className="p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl space-y-2 sm:space-y-3">
+            {/* Search Input & Counter Row */}
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
+              <div className="relative flex-1">
+                <Search className="w-3.5 sm:w-4 h-3.5 sm:h-4 absolute left-3 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search trainees in Top 50..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search query"
+                    className="absolute right-2.5 top-2 sm:top-2.5 text-slate-500 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="text-[10px] sm:text-[11px] font-mono font-semibold px-1 sm:px-2 shrink-0 text-right text-slate-400">
+                <strong className={isFiltering ? 'text-pink-400 font-bold' : 'text-white'}>
+                  {renderedItems.length}
+                </strong>
+                <span className="text-slate-500">/{activeCount}</span>
+              </div>
+            </div>
+
+            {/* Horizontally Scrollable Filter Chips */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto custom-scrollbar pb-1 pt-0.5 text-[10px] sm:text-[11px] touch-pan-x">
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
+                  selectedFilters.length === 0
+                    ? 'bg-pink-600 text-white shadow-md shadow-pink-600/25'
+                    : 'bg-slate-950/80 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                }`}
+              >
+                All
+              </button>
+
+              <div className="h-4 sm:h-5 w-px bg-slate-800 shrink-0" />
+
+              {/* Surface Filters */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 bg-slate-950/50 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-800/60">
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1.5 sm:px-2">
+                  Surface:
+                </span>
+                {(
+                  [
+                    { id: 'turf', label: 'Turf', emoji: '🌿' },
+                    { id: 'dirt', label: 'Dirt', emoji: '🏜️' },
+                  ] as const
+                ).map((chip) => {
+                  const isSelected = selectedFilters.includes(chip.id);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => handleToggleFilter(chip.id)}
+                      className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      <span>{chip.emoji}</span>
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="h-4 sm:h-5 w-px bg-slate-800 shrink-0" />
+
+              {/* Style Filters */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 bg-slate-950/50 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-800/60">
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1.5 sm:px-2">
+                  Style:
+                </span>
+                {(
+                  [
+                    { id: 'front', label: mode === 'jp' ? '逃げ (FR)' : 'Front' },
+                    { id: 'pace', label: mode === 'jp' ? '先行 (PC)' : 'Pace' },
+                    { id: 'late', label: mode === 'jp' ? '差し (LS)' : 'Late' },
+                    { id: 'end', label: mode === 'jp' ? '追込 (EC)' : 'End' },
+                  ] as const
+                ).map((chip) => {
+                  const isSelected = selectedFilters.includes(chip.id);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => handleToggleFilter(chip.id)}
+                      className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-bold whitespace-nowrap transition-all ${
+                        isSelected
+                          ? 'bg-cyan-600 text-white shadow-sm'
+                          : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="h-4 sm:h-5 w-px bg-slate-800 shrink-0" />
+
+              {/* Distance Filters */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 bg-slate-950/50 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-800/60">
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1.5 sm:px-2">
+                  Dist:
+                </span>
+                {(
+                  [
+                    { id: 'short', label: mode === 'jp' ? '短距離 (SP)' : 'Sprint' },
+                    { id: 'mile', label: mode === 'jp' ? 'マイル (MI)' : 'Mile' },
+                    { id: 'medium', label: mode === 'jp' ? '中距離 (MD)' : 'Medium' },
+                    { id: 'long', label: mode === 'jp' ? '長距離 (LG)' : 'Long' },
+                  ] as const
+                ).map((chip) => {
+                  const isSelected = selectedFilters.includes(chip.id);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      onClick={() => handleToggleFilter(chip.id)}
+                      className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl font-bold whitespace-nowrap transition-all ${
+                        isSelected
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Trainee Cards List */}
+      {activeCount === 0 ? (
+        <div className="p-8 sm:p-14 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-2xl flex flex-col items-center justify-center text-center space-y-6 animate-fadeIn">
+          {/* Animated Agnes Digital Chibi Mascot */}
+          <div className="chibi-interactive relative flex flex-col items-center justify-center cursor-pointer group">
+            <div className="absolute inset-0 bg-pink-500/15 blur-2xl rounded-full pointer-events-none" />
+            <img
+              src="/chibis/AgnesDigitalChibi1.png"
+              alt="Agnes Digital - Waiting for Oshis"
+              className="chibi-avatar w-32 sm:w-44 h-auto drop-shadow-[0_8px_20px_rgba(236,72,153,0.25)] relative z-10 transition-transform duration-300 group-hover:scale-105 select-none"
+            />
+          </div>
+
+          {/* Heading */}
+          <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Your Top 50 List is Empty!
+          </h3>
+
+          {/* Agnes Digital Stylized Dialogue Bubble */}
+          <div className="max-w-lg p-4 rounded-2xl bg-slate-950/70 border border-pink-500/30 shadow-inner text-left space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-pink-600 text-white font-black text-[10px] uppercase tracking-wider">
+                Agnes Digital
+              </span>
+              <span className="text-[11px] text-pink-300 font-medium">
+                Ready to simp, Trainer-san! 🌸
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+              &ldquo;The fangirling universe is full of possibilities! Let me guide you through the{' '}
+              <strong className="text-pink-400 font-bold">Oshi Matchmaker tournament</strong> to
+              uncover your true loves, or feel free to{' '}
+              <strong className="text-amber-300 font-bold">hand-pick them directly</strong> from
+              the roster!&rdquo;
+            </p>
+          </div>
+
+          {/* Dual Action Choices */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full max-w-md pt-1">
+            {/* Primary Highlighted Button: Oshi Sorter */}
+            {onGoToSorter && (
+              <button
+                type="button"
+                onClick={onGoToSorter}
+                className="w-full sm:w-auto flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-600 via-rose-600 to-amber-500 hover:from-pink-500 hover:to-amber-400 text-white font-black text-xs sm:text-sm transition-all shadow-xl shadow-pink-600/30 flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+              >
+                <Swords className="w-4 h-4 fill-white text-white stroke-[2.5]" />
+                <span className="drop-shadow-sm">Rank with Oshi Sorter</span>
+              </button>
+            )}
+
+            {/* Secondary Button: Manual Database Browse */}
+            <button
+              type="button"
+              onClick={onGoToDatabase}
+              className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md cursor-pointer"
+            >
+              <Search className="w-4 h-4 text-slate-400" />
+              <span>Browse All Playable</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <DndContext
+          sensors={isReadOnly || isMobileScreen ? [] : sensors}
+          collisionDetection={collisionDetectionStrategy}
+          measuring={{
+            droppable: {
+              strategy: MeasuringStrategy.Always,
+            },
+          }}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext
+            items={orderedTrainees.map((t) => t.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {viewStyle === 'tiered' ? (
+              <div className="space-y-6">
+                {TIERS.map((tier) => {
+                  const tierTrainees = renderedItems.filter(
+                    (t) => t.rank >= tier.minRank && t.rank <= tier.maxRank
+                  );
+                  const isCurrentFillingTier =
+                    activeCount + 1 >= tier.minRank && activeCount + 1 <= tier.maxRank;
+
+                  if (tierTrainees.length === 0 && (!isCurrentFillingTier || isFiltering)) {
+                    return null;
+                  }
+
+                  const maxInTier = tier.maxRank - tier.minRank + 1;
+
+                  return (
+                    <div
+                      key={tier.id}
+                      className={`p-4 sm:p-5 rounded-3xl bg-[#0e1424] border ${tier.accentBorder} shadow-xl space-y-3.5`}
+                    >
+                      <div className={`p-3 sm:px-4 rounded-2xl ${tier.headerBg} border border-slate-800/60 flex flex-wrap items-center justify-between gap-2 shadow-sm`}>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl select-none">{tier.badgeEmoji}</span>
+                          <h3 className={`text-sm font-black ${tier.textColor}`}>
+                            {tier.name}
+                            <span className="text-xs font-semibold text-slate-400 ml-2">
+                              (Rank {tier.minRank}–{tier.maxRank})
+                            </span>
+                          </h3>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-bold ${tier.pillBg}`}>
+                            {tier.multiplier}
+                          </span>
+                          <span className="text-xs text-slate-400 font-semibold">
+                            {isFiltering ? `${tierTrainees.length} matches` : `${tierTrainees.length} / ${maxInTier}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 pt-0.5">
+                        {tierTrainees.map(({ rank, trainee }) => (
+                          <OshiCard
+                            key={trainee.id}
+                            rank={rank}
+                            trainee={trainee}
+                            mode={mode}
+                            totalCount={activeCount}
+                            isCompact={isCompact}
+                            isReadOnly={isReadOnly}
+                            onOpenActionMenu={isReadOnly ? undefined : onOpenActionMenu}
+                            onRemove={isReadOnly ? undefined : onRemove}
+                            onMoveToRank={isReadOnly ? undefined : handleMoveToRank}
+                          />
+                        ))}
+
+                        {/* Completely hidden in Read-Only mode */}
+                        {!isReadOnly && isCurrentFillingTier && activeCount < 50 && !isFiltering && (
+                          <button
+                            onClick={() => onOpenModal(activeCount + 1)}
+                            className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
+                          >
+                            <Plus className="w-4 h-4 text-slate-500 group-hover:text-pink-400 transition-colors" />
+                            <span>Add Rank #{activeCount + 1} Oshi</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {renderedItems.map(({ rank, trainee }) => (
+                  <OshiCard
+                    key={trainee.id}
+                    rank={rank}
+                    trainee={trainee}
+                    mode={mode}
+                    totalCount={activeCount}
+                    isCompact={isCompact}
+                    isReadOnly={isReadOnly}
+                    onOpenActionMenu={isReadOnly ? undefined : onOpenActionMenu}
+                    onRemove={isReadOnly ? undefined : onRemove}
+                    onMoveToRank={isReadOnly ? undefined : handleMoveToRank}
+                  />
+                ))}
+
+                {/* Completely hidden in Read-Only mode */}
+                {!isReadOnly && activeCount < 50 && !isFiltering && (
+                  <button
+                    onClick={() => onOpenModal(activeCount + 1)}
+                    className="w-full mt-2.5 flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-[#0e1424]/60 border border-dashed border-slate-800 hover:border-pink-500/60 hover:bg-slate-900/50 transition-all text-xs font-bold text-slate-400 hover:text-pink-300 group"
+                  >
+                    <Plus className="w-4 h-4 text-slate-500 group-hover:text-pink-400 transition-colors" />
+                    <span>Add Rank #{activeCount + 1} Oshi</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </SortableContext>
+
+          {/* Floating Drag Overlay */}
+          {!isReadOnly && (
+            <DragOverlay
+              dropAnimation={{
+                sideEffects: defaultDropAnimationSideEffects({
+                  styles: {
+                    active: {
+                      opacity: '0.3',
+                    },
+                  },
+                }),
+              }}
+            >
+              {activeOverlayData ? (
+                <OshiCard
+                  rank={activeOverlayData.rank}
+                  trainee={activeOverlayData.trainee}
+                  mode={mode}
+                  totalCount={activeCount}
+                  isCompact={isCompact}
+                  isOverlay
+                  onOpenActionMenu={onOpenActionMenu}
+                  onRemove={onRemove}
+                  onMoveToRank={handleMoveToRank}
+                />
+              ) : null}
+            </DragOverlay>
+          )}
+        </DndContext>
+      )}
     </div>
   );
 };
