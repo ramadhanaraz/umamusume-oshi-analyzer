@@ -59,4 +59,31 @@ describe('Zustand Stores', () => {
     setHasActiveSession(true);
     expect(useSorterStore.getState().hasActiveSession).toBe(true);
   });
+
+  it('restores personal calculation settings when exiting shared preview', () => {
+    // 1. Setup local storage with personal calculation settings
+    localStorage.setItem(
+      'umamusume-top50-calc-settings',
+      JSON.stringify({ weightMode: 'linear', filterMode: 'allGrades' })
+    );
+    useSettingsStore.getState().loadSavedSettings();
+    expect(useSettingsStore.getState().weightMode).toBe('linear');
+    expect(useSettingsStore.getState().filterMode).toBe('allGrades');
+
+    // 2. Simulate opening a shared link which loads preview roster and preview calculation settings
+    useRosterStore.setState({ isSharedPreview: true });
+    useSettingsStore.getState().setWeightMode('equal');
+    useSettingsStore.getState().setFilterMode('acViable');
+
+    expect(useSettingsStore.getState().weightMode).toBe('equal');
+    expect(useSettingsStore.getState().filterMode).toBe('acViable');
+
+    // 3. User clicks "Restore My List"
+    useRosterStore.getState().exitSharedPreview();
+
+    // 4. Verify calculation settings and shared preview state are restored from local storage
+    expect(useRosterStore.getState().isSharedPreview).toBe(false);
+    expect(useSettingsStore.getState().weightMode).toBe('linear');
+    expect(useSettingsStore.getState().filterMode).toBe('allGrades');
+  });
 });

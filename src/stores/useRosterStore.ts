@@ -3,6 +3,7 @@ import { Trainee, WeightingMode, AptitudeFilterMode } from '../types/trainee';
 import { OshiSlot } from '../utils/calculator';
 import { encodeRosterToUrl, decodeRosterFromUrl } from '../utils/urlSerializer';
 import { traineeRepository } from '../repositories/traineeRepository';
+import { useSettingsStore } from './useSettingsStore';
 
 const TOTAL_SLOTS = 50;
 const ROSTER_STORAGE_KEY = 'umamusume-top50-roster';
@@ -213,12 +214,14 @@ export const useRosterStore = create<RosterState>((set, get) => ({
   exitSharedPreview: () => {
     const { loadRosterFromStorage } = get();
     loadRosterFromStorage();
+    useSettingsStore.getState().loadSavedSettings();
   },
 
   confirmImportShared: () => {
     const { slots, setSlots } = get();
     set({ isSharedPreview: false });
     setSlots(slots);
+    useSettingsStore.getState().saveCurrentSettings();
   },
 
   handleShare: async (weightMode, filterMode) => {
