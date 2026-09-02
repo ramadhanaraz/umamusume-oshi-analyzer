@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { WeightingMode, AptitudeFilterMode, TerminologyMode } from '../types/trainee';
+import { useRosterStore } from './useRosterStore';
 
 const SETTINGS_STORAGE_KEY = 'umamusume-top50-calc-settings';
 const TERMINOLOGY_STORAGE_KEY = 'umamusume-top50-terminology-mode';
@@ -13,9 +14,10 @@ interface SettingsState {
   setFilterMode: (mode: AptitudeFilterMode) => void;
   setMode: (mode: TerminologyMode) => void;
   loadSavedSettings: () => void;
+  saveCurrentSettings: () => void;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   weightMode: 'tiered',
   filterMode: 'aOnly',
   mode: 'global',
@@ -23,11 +25,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setWeightMode: (weightMode) => {
     set({ weightMode });
     if (typeof window !== 'undefined') {
-      try {
-        const current = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...current, weightMode }));
-      } catch (e) {
-        console.error('Failed to save weightMode to LocalStorage', e);
+      const isSharedPreview = useRosterStore.getState().isSharedPreview;
+      if (!isSharedPreview) {
+        try {
+          const current = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...current, weightMode }));
+        } catch (e) {
+          console.error('Failed to save weightMode to LocalStorage', e);
+        }
       }
     }
   },
@@ -35,11 +40,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setFilterMode: (filterMode) => {
     set({ filterMode });
     if (typeof window !== 'undefined') {
-      try {
-        const current = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...current, filterMode }));
-      } catch (e) {
-        console.error('Failed to save filterMode to LocalStorage', e);
+      const isSharedPreview = useRosterStore.getState().isSharedPreview;
+      if (!isSharedPreview) {
+        try {
+          const current = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...current, filterMode }));
+        } catch (e) {
+          console.error('Failed to save filterMode to LocalStorage', e);
+        }
       }
     }
   },
@@ -51,6 +59,21 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         localStorage.setItem(TERMINOLOGY_STORAGE_KEY, mode);
       } catch (e) {
         console.error('Failed to save terminology mode to LocalStorage', e);
+      }
+    }
+  },
+
+  saveCurrentSettings: () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const { weightMode, filterMode } = get();
+        const current = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+        localStorage.setItem(
+          SETTINGS_STORAGE_KEY,
+          JSON.stringify({ ...current, weightMode, filterMode })
+        );
+      } catch (e) {
+        console.error('Failed to save settings to LocalStorage', e);
       }
     }
   },
