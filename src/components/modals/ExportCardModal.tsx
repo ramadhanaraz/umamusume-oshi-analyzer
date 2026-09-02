@@ -178,7 +178,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
 
         {/* Modal Window Body */}
         <div className="p-3 sm:p-5 overflow-y-auto space-y-4 flex flex-col items-center">
-          
+
           {/* Quick Actions Bar */}
           <div className="w-full flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 p-3 rounded-2xl border border-slate-800/80 shrink-0">
             <div className="text-xs text-slate-400">
@@ -273,7 +273,7 @@ export const ExportCardModal: React.FC<ExportCardModalProps> = ({
 
                 {/* 2. Main Content Layout (Fixed 12-Column Grid) */}
                 <div className="relative z-10 grid grid-cols-12 gap-4 items-stretch flex-1 py-1.5">
-                  
+
                   {/* Left: Top 5 Spotlight (Col-Span 7) */}
                   <div className="col-span-7 flex flex-col space-y-2">
                     <div className="flex items-center gap-2 shrink-0">

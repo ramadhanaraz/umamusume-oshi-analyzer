@@ -4,13 +4,13 @@
 import React from 'react';
 import { ArchetypeDetails } from '../../utils/calculator';
 import { TerminologyMode } from '../../types/trainee';
-import { 
-  Sparkles, 
-  Construction, 
-  Trophy, 
-  Dna, 
-  Layers, 
-  Compass, 
+import {
+  Sparkles,
+  Construction,
+  Trophy,
+  Dna,
+  Layers,
+  Compass,
   ArrowRight,
   Clock,
   Hammer
@@ -62,7 +62,7 @@ export const ArchetypeView: React.FC<ArchetypeViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-fadeIn select-none">
-      
+
       {/* 1. Tactical Archetype Identity Banner */}
       <div
         className={`p-6 sm:p-8 rounded-3xl bg-gradient-to-br ${archetype.gradient} border ${archetype.border} shadow-2xl space-y-4 text-white relative overflow-hidden`}
@@ -71,7 +71,7 @@ export const ArchetypeView: React.FC<ArchetypeViewProps> = ({
           <span className="px-3 py-1 rounded-full bg-black/30 backdrop-blur-md text-amber-200 text-xs font-bold uppercase tracking-widest border border-white/10 shadow-sm">
             {archetype.badge}
           </span>
-          
+
           {/* Prominent WIP Banner Badge */}
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-950/80 backdrop-blur-md text-amber-300 border border-amber-400/50 text-xs font-black shadow-lg shadow-amber-950/40">
             <Construction className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
@@ -99,7 +99,7 @@ export const ArchetypeView: React.FC<ArchetypeViewProps> = ({
 
       {/* 2. WIP Section & Planned Tools Showcase */}
       <div className="p-6 sm:p-8 rounded-3xl bg-[#0e1424] border border-slate-800/90 shadow-xl space-y-6">
-        
+
         {/* Header with Pronounced WIP Indicator */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-800/80">
           <div className="flex items-center gap-4">

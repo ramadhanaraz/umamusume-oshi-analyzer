@@ -20,7 +20,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({
 }) => {
   return (
     <div className="space-y-8 animate-fadeIn">
-      
+
       {/* Top Section: Presets */}
       <div className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800/80 space-y-4">
         <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
@@ -69,7 +69,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({
 
       {/* Bottom 3-Card Export & Share Suite */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+
         {/* 1. Visual Card Export */}
         <div className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800/80 space-y-4 flex flex-col justify-between">
           <div className="space-y-2">
